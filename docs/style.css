@@ -677,7 +677,7 @@ button.navlink { border: 0; background: none; font: inherit; font-weight: 500; c
 
 @media (max-width: 900px) {
   .overview-grid { grid-template-columns: 1fr; gap: 1.5rem; }
-  .map-wrap { position: static; }
+  .map-wrap { position: relative; }
   .map { max-height: 62vh; }
 }
 
