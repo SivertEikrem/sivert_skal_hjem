@@ -60,7 +60,7 @@ $("auth-form").addEventListener("submit", async (e) => {
       if (data.session) {
         location.replace(APP_URL);
       } else {
-        show(msg, `Nesten ferdig. Vi har sendt en e-post til ${email}. Trykk på lenken i den for å bekrefte kontoen.`, "ok");
+        show(msg, `Nesten ferdig. Vi har sendt en e-post til ${email}. Trykk på knappen i den for å bekrefte kontoen. Finner du den ikke, sjekk søppelposten.`, "ok");
       }
     }
   } catch (err) {
@@ -76,17 +76,12 @@ $("forgot").addEventListener("click", async () => {
   if (!email) return show(msg, "Skriv inn e-posten din først, så sender vi en lenke for å lage nytt passord.", "error");
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: LOGIN_URL });
   if (error) return show(msg, norskFeil(error), "error");
-  show(msg, `Vi har sendt en lenke til ${email}. Trykk på den for å velge nytt passord.`, "ok");
+  show(msg, `Vi har sendt en e-post til ${email}. Trykk på knappen i den for å velge nytt passord. Finner du den ikke, sjekk søppelposten.`, "ok");
 });
 
 // Når brukeren kommer fra «nytt passord»-lenken
 sb.auth.onAuthStateChange((event) => {
-  if (event === "PASSWORD_RECOVERY") {
-    recovering = true;
-    $("view-auth").hidden = true;
-    $("view-reset").hidden = false;
-    $("new-password").focus();
-  }
+  if (event === "PASSWORD_RECOVERY") showRecoveryForm();
 });
 
 $("view-reset").addEventListener("submit", async (e) => {
@@ -100,11 +95,41 @@ $("view-reset").addEventListener("submit", async (e) => {
   setTimeout(() => location.replace(APP_URL), 1200);
 });
 
-// Allerede innlogget? Rett til appen (sjekkes mot serveren, ikke bare lokalt)
+function showRecoveryForm() {
+  recovering = true;
+  $("view-auth").hidden = true;
+  $("view-reset").hidden = false;
+  $("new-password").focus();
+}
+
 (async () => {
-  const hasRecoveryHash = location.hash.includes("type=recovery");
+  // Kommer brukeren fra en lenke i en e-post fra oss?
+  // (…/login.html?token_hash=…&type=email eller type=recovery)
+  const params = new URLSearchParams(location.search);
+  const tokenHash = params.get("token_hash");
+  const type = params.get("type");
+
+  if (tokenHash && (type === "email" || type === "recovery")) {
+    history.replaceState(null, "", location.pathname); // fjern koden fra adressefeltet
+    const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type });
+    if (error) {
+      show(
+        $("auth-msg"),
+        type === "recovery"
+          ? "Lenken er utløpt eller allerede brukt. Skriv inn e-posten din og trykk «Glemt passordet?» for å få en ny."
+          : "Lenken er utløpt eller allerede brukt. Prøv å logge inn. Virker ikke det, lager du konto på nytt med samme e-post, så får du en ny lenke.",
+        "error",
+      );
+      return;
+    }
+    if (type === "recovery") return showRecoveryForm();
+    location.replace(APP_URL); // e-posten er bekreftet, og brukeren er logget inn
+    return;
+  }
+
+  // Allerede innlogget? Rett til appen (sjekkes mot serveren, ikke bare lokalt)
   const { data } = await sb.auth.getUser();
-  if (data?.user && !recovering && !hasRecoveryHash) location.replace(APP_URL);
+  if (data?.user && !recovering) location.replace(APP_URL);
 })();
 
 // Live-tavla: de første ledige bilene akkurat nå
