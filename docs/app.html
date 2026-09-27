@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mine ruter – Sivert skal hjem</title>
+  <script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="app.html">
+      <svg width="34" height="12" viewBox="0 0 34 12" aria-hidden="true"><line x1="5" y1="6" x2="28" y2="6" style="stroke:var(--accent)" stroke-width="2.5"/><circle cx="5" cy="6" r="4" style="fill:var(--accent)"/><circle cx="29" cy="6" r="3.5" style="fill:var(--bg);stroke:var(--accent)" stroke-width="2.5"/></svg>
+      Sivert skal hjem
+    </a>
+    <nav aria-label="Hovedmeny">
+      <a class="navlink" href="app.html" aria-current="page">Mine ruter</a>
+      <button class="icon-btn" type="button" data-theme-toggle></button>
+      <button class="navlink" type="button" id="logout">Logg ut</button>
+    </nav>
+  </header>
+
+  <main class="page" id="page" hidden>
+    <!-- Telegram -->
+    <section class="section" aria-labelledby="tg-title">
+      <div class="panel" id="tg-panel">
+        <div class="panel-row">
+          <h2 id="tg-title">Varsler på Telegram</h2>
+          <span class="status" id="tg-status"></span>
+        </div>
+        <p class="muted" id="tg-text"></p>
+        <div class="panel-row" id="tg-actions"></div>
+      </div>
+    </section>
+
+    <!-- Ruter -->
+    <section class="section" aria-labelledby="routes-title">
+      <div class="section-head">
+        <h1 id="routes-title">Mine ruter</h1>
+        <span class="muted" id="routes-updated"></span>
+      </div>
+
+      <form class="add-route" id="add-route" novalidate>
+        <div class="field">
+          <label for="from">Fra</label>
+          <input class="input" id="from" list="cities" placeholder="Hvor som helst" autocomplete="off">
+        </div>
+        <span class="between" aria-hidden="true">
+          <svg width="28" height="12" viewBox="0 0 28 12"><line x1="4" y1="6" x2="23" y2="6" style="stroke:currentColor" stroke-width="2"/><circle cx="4" cy="6" r="3.5" style="fill:currentColor"/><circle cx="24" cy="6" r="3" style="fill:var(--bg);stroke:currentColor" stroke-width="2"/></svg>
+        </span>
+        <div class="field">
+          <label for="to">Til</label>
+          <input class="input" id="to" list="cities" placeholder="Hvor som helst" autocomplete="off">
+        </div>
+        <button class="btn" type="submit">Følg rute</button>
+      </form>
+      <datalist id="cities"></datalist>
+      <div id="route-msg" class="notice" hidden role="status"></div>
+
+      <div class="watches" id="watches"></div>
+    </section>
+
+    <!-- Innstillinger -->
+    <section class="section" aria-labelledby="settings-title">
+      <h2 id="settings-title">Varselinnstillinger</h2>
+      <div class="panel">
+        <div class="panel-row">
+          <label class="switch">
+            <input type="checkbox" id="notify-toggle">
+            Send varsel når en ny bil dukker opp
+          </label>
+          <span class="saved" id="notify-saved" hidden>Lagret</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-row">
+          <h3>Daglig oversikt</h3>
+          <span class="saved" id="hours-saved" hidden>Lagret</span>
+        </div>
+        <p class="muted">Velg klokkeslett for en melding med alle ledige biler på rutene dine, også de du allerede har fått varsel om.</p>
+        <div class="hours" id="hours" role="group" aria-label="Klokkeslett for daglig oversikt"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

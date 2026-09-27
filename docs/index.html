@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sivert skal hjem</title>
+  <!-- Midlertidig: sender videre til innlogging eller appen. Byttes ut med ekte forside senere. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    (async () => {
+      const sb = window.supabase.createClient(window.APP_CONFIG.SUPABASE_URL, window.APP_CONFIG.SUPABASE_KEY);
+      const { data } = await sb.auth.getSession();
+      location.replace(data?.session ? "app.html" : "login.html");
+    })();
+  </script>
+</head>
+<body></body>
+</html>

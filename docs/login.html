@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Logg inn – Sivert skal hjem</title>
+  <script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="auth">
+    <section class="auth-live" aria-labelledby="live-title">
+      <div class="topbar">
+        <a class="brand" href="./">
+          <svg width="34" height="12" viewBox="0 0 34 12" aria-hidden="true"><line x1="5" y1="6" x2="28" y2="6" style="stroke:var(--accent)" stroke-width="2.5"/><circle cx="5" cy="6" r="4" style="fill:var(--accent)"/><circle cx="29" cy="6" r="3.5" style="fill:var(--surface);stroke:var(--accent)" stroke-width="2.5"/></svg>
+          Sivert skal hjem
+        </a>
+      </div>
+
+      <div class="auth-live-body">
+        <h1 id="live-title">Gratis bil hjem, når den dukker opp.</h1>
+        <p class="muted">Hertz trenger biler flyttet mellom byene, og du kan kjøre dem gratis. Velg rutene dine, så får du melding på Telegram i det en bil blir ledig.</p>
+        <p class="auth-count" id="live-count" hidden><span class="dot" aria-hidden="true"></span><span></span></p>
+        <ul class="board" id="live-board"></ul>
+      </div>
+    </section>
+
+    <section class="auth-form">
+      <div class="auth-form-inner">
+        <div class="mobile-brand">
+          <a class="brand" href="./">
+            <svg width="34" height="12" viewBox="0 0 34 12" aria-hidden="true"><line x1="5" y1="6" x2="28" y2="6" style="stroke:var(--accent)" stroke-width="2.5"/><circle cx="5" cy="6" r="4" style="fill:var(--accent)"/><circle cx="29" cy="6" r="3.5" style="fill:var(--bg);stroke:var(--accent)" stroke-width="2.5"/></svg>
+            Sivert skal hjem
+          </a>
+          <button class="icon-btn" type="button" data-theme-toggle></button>
+        </div>
+        <div class="auth-form-top"><button class="icon-btn" type="button" data-theme-toggle></button></div>
+
+        <!-- Logg inn / lag konto -->
+        <div id="view-auth" class="form">
+          <div class="segmented" role="group" aria-label="Velg">
+            <button type="button" id="tab-login" aria-pressed="true">Logg inn</button>
+            <button type="button" id="tab-signup" aria-pressed="false">Lag konto</button>
+          </div>
+
+          <form id="auth-form" class="form" novalidate>
+            <div class="field">
+              <label for="email">E-post</label>
+              <input class="input" id="email" type="email" autocomplete="email" required>
+            </div>
+            <div class="field">
+              <label for="password">Passord</label>
+              <input class="input" id="password" type="password" autocomplete="current-password" minlength="6" required>
+            </div>
+            <div id="auth-msg" class="notice" hidden role="status"></div>
+            <button class="btn" type="submit" id="auth-submit">Logg inn</button>
+          </form>
+
+          <p><button type="button" class="link-btn" id="forgot">Glemt passordet?</button></p>
+        </div>
+
+        <!-- Nytt passord (fra e-postlenke) -->
+        <form id="view-reset" class="form" hidden novalidate>
+          <h2>Velg nytt passord</h2>
+          <div class="field">
+            <label for="new-password">Nytt passord</label>
+            <input class="input" id="new-password" type="password" autocomplete="new-password" minlength="6" required>
+          </div>
+          <div id="reset-msg" class="notice" hidden role="status"></div>
+          <button class="btn" type="submit">Lagre passord</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>
