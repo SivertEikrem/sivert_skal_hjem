@@ -598,7 +598,89 @@ button.navlink { border: 0; background: none; font: inherit; font-weight: 500; c
   .brand { font-size: 1.15rem; gap: 0.5rem; }
   .brand svg { width: 28px; }
   .navlink { padding: 0.45rem 0.5rem; }
-  .navlink[aria-current="page"] { display: none; }
-  .topbar { gap: 0.5rem; }
+  .topbar { flex-wrap: wrap; gap: 0.5rem; }
+  .topbar nav { width: 100%; margin-left: -0.5rem; }
   .page { padding-left: 1rem; padding-right: 1rem; }
+}
+
+/* ------------------------------------------------------------ alle ledige biler */
+
+.overview { gap: 1.5rem; }
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: start;
+  gap: 2.5rem;
+}
+
+.map-wrap {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 1rem;
+  border-radius: var(--r-m);
+  background: var(--surface);
+}
+
+.map-wrap figcaption { font-size: 0.9rem; }
+
+.map {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(100vh - 8rem);
+}
+
+.map-land { fill: var(--raised); stroke: var(--line); stroke-width: 0.75; vector-effect: non-scaling-stroke; }
+.map-neighbour { fill: color-mix(in srgb, var(--line) 55%, transparent); }
+.map-route { fill: none; stroke: var(--accent); opacity: 0.8; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.map-route.dim { opacity: 0.12; }
+.map-arrow { fill: var(--accent); }
+.map-hit { fill: transparent; }
+.map-dot { fill: var(--accent); stroke: var(--raised); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.map-city { cursor: pointer; outline: none; }
+.map-city:hover .map-dot,
+.map-city:focus-visible .map-dot { stroke: var(--text); stroke-width: 2; }
+.map-city.active .map-dot { stroke: var(--text); stroke-width: 2; }
+
+.map-label {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(13px * var(--map-scale, 1));
+  fill: var(--text);
+  paint-order: stroke;
+  stroke: var(--raised);
+  stroke-width: calc(3px * var(--map-scale, 1));
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.map-label.active { fill: var(--accent-strong); }
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+}
+
+.filter-note {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .overview-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+  .map-wrap { position: static; }
+  .map { max-height: 62vh; }
+}
+
+@media (max-width: 480px) {
+  .filters { grid-template-columns: 1fr; }
 }
