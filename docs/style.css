@@ -746,3 +746,5 @@ button.navlink { border: 0; background: none; font: inherit; font-weight: 500; c
 @media (max-width: 900px) {
   .routes-grid { grid-template-columns: 1fr; gap: 2rem; }
 }
+
+.stale { color: var(--warn); }

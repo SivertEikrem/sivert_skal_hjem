@@ -163,6 +163,35 @@ async function loadTrips() {
   return data;
 }
 
+// Når Hertz sist ble sjekket med hell
+async function loadLastCheck() {
+  const { data, error } = await sb.from("app_status").select("last_ok_at").eq("id", 1).maybeSingle();
+  if (error) {
+    console.error(error);
+    return null;
+  }
+  return data?.last_ok_at ?? null;
+}
+
+// Skriver «Sjekket hos Hertz kl. 18:25», eller en advarsel hvis det er lenge siden
+function renderFreshness(node, lastOk) {
+  if (!lastOk) {
+    node.textContent = "";
+    node.classList.remove("stale");
+    return;
+  }
+  const then = new Date(lastOk);
+  const a = osloParts(then);
+  const b = osloParts(new Date());
+  const sameDay = a.year === b.year && a.month === b.month && a.day === b.day;
+  const when = sameDay ? `kl. ${pad(a.hour)}:${pad(a.minute)}` : formatDato(lastOk);
+  const stale = Date.now() - then.getTime() > 20 * 60 * 1000;
+  node.textContent = stale
+    ? `Siste sjekk hos Hertz var ${when}. Bilene kan være utdatert.`
+    : `Sjekket hos Hertz ${when}`;
+  node.classList.toggle("stale", stale);
+}
+
 function matchesWatch(t, w) {
   return (!w.from_city || w.from_city === t.from_city) && (!w.to_city || w.to_city === t.to_city);
 }

@@ -39,8 +39,11 @@ $("search").addEventListener("input", renderList);
 $("sort").addEventListener("change", renderList);
 $("clear-city").addEventListener("click", () => selectCity(null));
 
+let lastOk = null;
+
 async function refresh() {
-  const all = await loadTrips();
+  const [all, ok] = await Promise.all([loadTrips(), loadLastCheck()]);
+  lastOk = ok;
   const now = Date.now();
   trips = all.filter((t) => !t.expire_time || new Date(t.expire_time).getTime() > now);
 }
@@ -49,8 +52,7 @@ function render() {
   const n = trips.length;
   $("count").textContent = n === 1 ? "1 ledig bil" : `${n} ledige biler`;
   document.title = `(${n}) Alle ledige biler – Sivert skal hjem`;
-  const p = osloParts(new Date());
-  $("updated").textContent = `Oppdatert kl. ${pad(p.hour)}:${pad(p.minute)}`;
+  renderFreshness($("updated"), lastOk);
   map.setData({ trips, selected: selectedCity });
   renderList();
 }

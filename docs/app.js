@@ -43,6 +43,7 @@ const map = createRouteMap($("map-fig"), {
   renderWatches();
   renderSettings();
   $("page").hidden = false;
+  renderFreshness($("routes-updated"), await loadLastCheck());
 
   // Hold turene oppdatert
   setInterval(refreshTrips, 3 * 60 * 1000);
@@ -69,6 +70,7 @@ async function refreshTrips() {
   try {
     trips = await loadTrips();
     renderWatches();
+    renderFreshness($("routes-updated"), await loadLastCheck());
   } catch (err) {
     console.error(err);
   }
@@ -157,8 +159,6 @@ function renderWatches() {
   const now = Date.now();
   const live = trips.filter((t) => !t.expire_time || new Date(t.expire_time).getTime() > now);
 
-  const p = osloParts(new Date());
-  $("routes-updated").textContent = `Oppdatert kl. ${pad(p.hour)}:${pad(p.minute)}`;
 
   // Kartet viser bilene som passer rutene dine, og rutene du følger
   const mine = live.filter((t) => watches.some((w) => matchesWatch(t, w)));
