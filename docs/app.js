@@ -6,6 +6,13 @@ let watches = [];
 let trips = [];
 let cityData = { cities: [], resolve: () => null };
 let linkPoll = null;
+let selectedCity = null;
+const map = createRouteMap($("map-fig"), {
+  onCityClick: (city) => {
+    selectedCity = selectedCity === city ? null : city;
+    map.setData({ selected: selectedCity });
+  },
+});
 
 // ------------------------------------------------------------ oppstart
 
@@ -70,41 +77,31 @@ async function refreshTrips() {
 // ------------------------------------------------------------ Telegram
 
 function renderTelegram() {
-  const status = $("tg-status");
-  const text = $("tg-text");
-  const actions = $("tg-actions");
-  actions.replaceChildren();
+  const connected = !!profile.telegram_chat_id;
+  $("tg-section").hidden = connected;
+  $("tg-small").hidden = !connected;
 
-  if (profile.telegram_chat_id) {
-    status.textContent = profile.telegram_username ? `Koblet til som @${profile.telegram_username}` : "Koblet til";
-    status.className = "status on";
-    text.textContent = "Du får melding i Telegram når det dukker opp en ledig bil på rutene dine.";
-    actions.append(
-      el(
-        "button",
-        {
-          class: "btn btn-quiet",
-          type: "button",
-          onclick: async () => {
-            const { error } = await sb.rpc("unlink_telegram");
-            if (error) return alert("Klarte ikke å koble fra. Prøv igjen.");
-            profile = await loadProfile();
-            renderTelegram();
-            renderWatches();
-          },
-        },
-        "Koble fra Telegram",
-      ),
-    );
+  if (connected) {
+    $("tg-small-status").textContent = profile.telegram_username
+      ? `Koblet til Telegram som @${profile.telegram_username}`
+      : "Koblet til Telegram";
     return;
   }
 
-  status.textContent = "Ikke koblet til";
-  status.className = "status";
-  text.textContent =
+  $("tg-status").textContent = "Ikke koblet til";
+  $("tg-status").className = "status";
+  $("tg-text").textContent =
     "Koble til Telegram for å få varsel på mobilen i det en bil blir ledig. Du trenger Telegram-appen.";
-  actions.append(el("button", { class: "btn", type: "button", onclick: startLink }, "Koble til Telegram"));
+  $("tg-actions").replaceChildren(el("button", { class: "btn", type: "button", onclick: startLink }, "Koble til Telegram"));
 }
+
+$("tg-unlink").addEventListener("click", async () => {
+  const { error } = await sb.rpc("unlink_telegram");
+  if (error) return alert("Klarte ikke å koble fra. Prøv igjen.");
+  profile = await loadProfile();
+  renderTelegram();
+  renderWatches();
+});
 
 async function startLink(e) {
   const btn = e.currentTarget;
@@ -162,6 +159,11 @@ function renderWatches() {
 
   const p = osloParts(new Date());
   $("routes-updated").textContent = `Oppdatert kl. ${pad(p.hour)}:${pad(p.minute)}`;
+
+  // Kartet viser bilene som passer rutene dine, og rutene du følger
+  const mine = live.filter((t) => watches.some((w) => matchesWatch(t, w)));
+  $("map-fig").hidden = !watches.length;
+  map.setData({ trips: mine, planned: watches.map((w) => ({ from: w.from_city, to: w.to_city })) });
 
   if (!watches.length) {
     box.replaceChildren(

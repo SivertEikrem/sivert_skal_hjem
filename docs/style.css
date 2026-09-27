@@ -684,3 +684,65 @@ button.navlink { border: 0; background: none; font: inherit; font-weight: 500; c
 @media (max-width: 480px) {
   .filters { grid-template-columns: 1fr; }
 }
+
+/* ------------------------------------------------------------ kart: zoom og panorering */
+
+.map {
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.map.zoomed { touch-action: none; cursor: grab; }
+.map.zoomed:active { cursor: grabbing; }
+
+.map-controls {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  background: var(--line);
+}
+
+.map-btn {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  background: var(--raised);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.map-btn:hover { background: var(--surface); }
+.map-btn:disabled { color: var(--muted); opacity: 0.45; cursor: default; background: var(--raised); }
+
+.map-route.planned {
+  stroke: var(--muted);
+  stroke-width: 1.4;
+  stroke-dasharray: 4 4;
+  opacity: 0.8;
+}
+
+.map-city.empty .map-dot { fill: var(--raised); stroke: var(--muted); stroke-width: 1.5; }
+
+/* Mine ruter: liste til venstre, kart til høyre */
+.routes-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  align-items: start;
+  gap: 2.5rem;
+  margin-top: 1rem;
+}
+
+.routes-grid .watches { margin-top: 0; }
+
+@media (max-width: 900px) {
+  .routes-grid { grid-template-columns: 1fr; gap: 2rem; }
+}

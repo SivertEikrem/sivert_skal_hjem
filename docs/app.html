@@ -25,8 +25,8 @@
   </header>
 
   <main class="page" id="page" hidden>
-    <!-- Telegram -->
-    <section class="section" aria-labelledby="tg-title">
+    <!-- Telegram (vises bare til kontoen er koblet til) -->
+    <section class="section" id="tg-section" aria-labelledby="tg-title" hidden>
       <div class="panel" id="tg-panel">
         <div class="panel-row">
           <h2 id="tg-title">Varsler på Telegram</h2>
@@ -61,13 +61,22 @@
       <datalist id="cities"></datalist>
       <div id="route-msg" class="notice" hidden role="status"></div>
 
-      <div class="watches" id="watches"></div>
+      <div class="routes-grid">
+        <div class="watches" id="watches"></div>
+        <figure id="map-fig" hidden>
+          <figcaption class="muted">Heltrukne linjer har ledige biler nå. Stiplede linjer er ruter du følger uten biler akkurat nå.</figcaption>
+        </figure>
+      </div>
     </section>
 
     <!-- Innstillinger -->
     <section class="section" aria-labelledby="settings-title">
       <h2 id="settings-title">Varselinnstillinger</h2>
       <div class="panel">
+        <div class="panel-row" id="tg-small" hidden>
+          <span class="status on" id="tg-small-status"></span>
+          <button type="button" class="link-btn subtle" id="tg-unlink">Koble fra Telegram</button>
+        </div>
         <div class="panel-row">
           <label class="switch">
             <input type="checkbox" id="notify-toggle">
@@ -90,6 +99,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="common.js"></script>
+  <script src="norway-map.js"></script>
+  <script src="map.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
