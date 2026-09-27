@@ -19,7 +19,7 @@ alter table public.app_status enable row level security;
 revoke all on public.app_status from anon, authenticated;
 
 -- Nettsiden får bare se når Hertz sist ble sjekket, ingenting annet
-grant select (last_ok_at) on public.app_status to anon, authenticated;
+grant select (id, last_ok_at) on public.app_status to anon, authenticated;
 create policy app_status_read on public.app_status for select to anon, authenticated using (true);
 grant all on public.app_status to service_role;
 
