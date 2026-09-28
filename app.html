@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mine ruter – Sivert skal hjem</title>
+  <script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="app.html">
+      <svg width="34" height="12" viewBox="0 0 34 12" aria-hidden="true"><line x1="5" y1="6" x2="28" y2="6" style="stroke:var(--accent)" stroke-width="2.5"/><circle cx="5" cy="6" r="4" style="fill:var(--accent)"/><circle cx="29" cy="6" r="3.5" style="fill:var(--bg);stroke:var(--accent)" stroke-width="2.5"/></svg>
+      Sivert skal hjem
+    </a>
+    <nav aria-label="Hovedmeny">
+      <a class="navlink" href="app.html" aria-current="page">Mine ruter</a>
+      <a class="navlink" href="oversikt.html">Alle biler</a>
+      <button class="icon-btn" type="button" data-theme-toggle></button>
+      <button class="navlink" type="button" id="logout">Logg ut</button>
+    </nav>
+  </header>
+
+  <main class="page" id="page" hidden>
+    <!-- Telegram (vises bare til kontoen er koblet til) -->
+    <section class="section" id="tg-section" aria-labelledby="tg-title" hidden>
+      <div class="panel" id="tg-panel">
+        <div class="panel-row">
+          <h2 id="tg-title">Varsler på Telegram</h2>
+          <span class="status" id="tg-status"></span>
+        </div>
+        <p class="muted" id="tg-text"></p>
+        <div class="panel-row" id="tg-actions"></div>
+      </div>
+    </section>
+
+    <!-- Ruter -->
+    <section class="section" aria-labelledby="routes-title">
+      <div class="section-head">
+        <h1 id="routes-title">Mine ruter</h1>
+        <span class="muted" id="routes-updated"></span>
+      </div>
+
+      <form class="add-route" id="add-route" novalidate>
+        <div class="field">
+          <label for="from">Fra</label>
+          <input class="input" id="from" list="cities" placeholder="Hvor som helst" autocomplete="off">
+        </div>
+        <span class="between" aria-hidden="true">
+          <svg width="28" height="12" viewBox="0 0 28 12"><line x1="4" y1="6" x2="23" y2="6" style="stroke:currentColor" stroke-width="2"/><circle cx="4" cy="6" r="3.5" style="fill:currentColor"/><circle cx="24" cy="6" r="3" style="fill:var(--bg);stroke:currentColor" stroke-width="2"/></svg>
+        </span>
+        <div class="field">
+          <label for="to">Til</label>
+          <input class="input" id="to" list="cities" placeholder="Hvor som helst" autocomplete="off">
+        </div>
+        <button class="btn" type="submit">Følg rute</button>
+        <details class="dates" id="dates">
+          <summary>Bare en bestemt periode? Velg datoer</summary>
+          <div class="date-row">
+            <div class="field">
+              <label for="date-from">Fra dato</label>
+              <input class="input" id="date-from" type="date">
+            </div>
+            <div class="field">
+              <label for="date-to">Til dato</label>
+              <input class="input" id="date-to" type="date">
+            </div>
+          </div>
+          <p class="muted small">Du får bare varsel om biler som kan hentes og leveres innenfor disse datoene. Ruten fjernes av seg selv når perioden er over.</p>
+        </details>
+      </form>
+      <datalist id="cities"></datalist>
+      <div id="route-msg" class="notice" hidden role="status"></div>
+
+      <div class="routes-grid">
+        <div class="watches" id="watches"></div>
+        <figure id="map-fig" hidden>
+          <figcaption class="muted">Heltrukne linjer har ledige biler nå. Stiplede linjer er ruter du følger uten biler akkurat nå.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Innstillinger -->
+    <section class="section" aria-labelledby="settings-title">
+      <h2 id="settings-title">Varselinnstillinger</h2>
+      <div class="panel">
+        <div class="panel-row" id="tg-small" hidden>
+          <span class="status on" id="tg-small-status"></span>
+          <button type="button" class="link-btn subtle" id="tg-unlink">Koble fra Telegram</button>
+        </div>
+        <div class="panel-row">
+          <label class="switch">
+            <input type="checkbox" id="notify-toggle">
+            Send varsel når en ny bil dukker opp
+          </label>
+          <span class="saved" id="notify-saved" hidden>Lagret</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-row">
+          <h3>Daglig oversikt</h3>
+          <span class="saved" id="hours-saved" hidden>Lagret</span>
+        </div>
+        <p class="muted">Velg klokkeslett for en melding med alle ledige biler på rutene dine, også de du allerede har fått varsel om.</p>
+        <div class="hours" id="hours" role="group" aria-label="Klokkeslett for daglig oversikt"></div>
+      </div>
+    </section>
+
+    <!-- Konto -->
+    <section class="section" aria-labelledby="account-title">
+      <h2 id="account-title">Konto</h2>
+      <div class="panel">
+        <div class="panel-row">
+          <span>Logget inn som <strong id="account-email"></strong></span>
+          <button type="button" class="link-btn subtle" id="delete-start">Slett kontoen min</button>
+        </div>
+        <div class="form" id="delete-confirm" hidden>
+          <p>Dette sletter kontoen din, rutene du følger og koblingen til Telegram. Det kan ikke angres.</p>
+          <div class="button-row">
+            <button type="button" class="btn btn-danger" id="delete-yes">Ja, slett alt</button>
+            <button type="button" class="btn btn-quiet" id="delete-no">Avbryt</button>
+          </div>
+          <div id="delete-msg" class="notice error" hidden role="status"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a href="personvern.html">Personvern</a>
+    <span>Ikke tilknyttet Hertz.</span>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+  <script src="norway-map.js"></script>
+  <script src="map.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
