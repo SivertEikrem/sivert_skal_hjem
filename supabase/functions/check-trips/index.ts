@@ -46,7 +46,13 @@ type Trip = {
   last_seen_at: string;
 };
 
-type Watch = { user_id: string; from_city: string | null; to_city: string | null };
+type Watch = {
+  user_id: string;
+  from_city: string | null;
+  to_city: string | null;
+  date_from: string | null; // YYYY-MM-DD, norsk dato
+  date_to: string | null;
+};
 type Profile = { id: string; telegram_chat_id: number; digest_hours: number[] | null };
 
 // ---------------------------------------------------------------- hjelpere
@@ -122,16 +128,53 @@ function num(v: unknown): number | null {
   return isFinite(n) ? n : null;
 }
 
+function osloDate(iso: string): string {
+  const p = osloParts(new Date(iso));
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
+}
+
 function matchesWatch(t: Trip, w: Watch): boolean {
   const from = w.from_city?.trim().toUpperCase() || null;
   const to = w.to_city?.trim().toUpperCase() || null;
-  return (!from || from === t.from_city) && (!to || to === t.to_city);
+  if (from && from !== t.from_city) return false;
+  if (to && to !== t.to_city) return false;
+
+  // Periode: bilen må kunne brukes (fra henting til siste retur) innenfor datoene
+  if (w.date_from || w.date_to) {
+    const periodFrom = (w.date_from ?? w.date_to)!;
+    const periodTo = (w.date_to ?? w.date_from)!;
+    const start = osloDate(t.available_at ?? new Date().toISOString());
+    const endIso = t.latest_return ?? t.expire_time;
+    const end = endIso ? osloDate(endIso) : "9999-12-31";
+    if (end < periodFrom || start > periodTo) return false;
+  }
+  return true;
+}
+
+function formatPeriod(from: string | null, to: string | null): string {
+  if (!from && !to) return "";
+  const a = (from ?? to)!.split("-").map(Number);
+  const b = (to ?? from)!.split("-").map(Number);
+  if (a[0] === b[0] && a[1] === b[1] && a[2] === b[2]) return `${a[2]}. ${MAANEDER[a[1] - 1]}`;
+  if (a[0] === b[0] && a[1] === b[1]) return `${a[2]}.–${b[2]}. ${MAANEDER[a[1] - 1]}`;
+  return `${a[2]}. ${MAANEDER[a[1] - 1]} – ${b[2]}. ${MAANEDER[b[1] - 1]}`;
 }
 
 function watchLabel(w: Watch): string {
   const from = w.from_city ? pen(w.from_city) : "Hvor som helst";
   const to = w.to_city ? pen(w.to_city) : "hvor som helst";
-  return `${from} → ${to}`;
+  const period = formatPeriod(w.date_from, w.date_to);
+  return `${from} → ${to}${period ? ` (${period})` : ""}`;
+}
+
+// Lenker nederst i hver melding
+const FOOTER = "\n\nSe alle på kartet: https://sivertskalhjem.no/oversikt.html\nBestill hos Hertz: https://hertzfreerider.no";
+
+function withFooter(messages: string[]): string[] {
+  if (!messages.length) return messages;
+  const out = [...messages];
+  out[out.length - 1] += FOOTER;
+  return out;
 }
 
 function byExpiry(a: Trip, b: Trip): number {
@@ -375,7 +418,7 @@ Deno.serve(async (req) => {
       ["id"],
       (q) => q.not("telegram_chat_id", "is", null).eq("notifications_enabled", true),
     );
-    const watches = await selectAll<Watch>(db, "watched_routes", "user_id, from_city, to_city", ["id"]);
+    const allWatches = await selectAll<Watch>(db, "watched_routes", "user_id, from_city, to_city, date_from, date_to", ["id"]);
     const sent = await selectAll<{ user_id: string; trip_id: string }>(
       db,
       "sent_notifications",
@@ -393,6 +436,8 @@ Deno.serve(async (req) => {
       (q) => q.eq("digest_date", today).eq("digest_hour", oslo.hour),
     );
 
+    // Ruter med en periode som er passert, telles ikke med
+    const watches = allWatches.filter((w) => !w.date_to || w.date_to >= today);
     const watchesByUser = new Map<string, Watch[]>();
     for (const w of watches) {
       if (!watchesByUser.has(w.user_id)) watchesByUser.set(w.user_id, []);
@@ -419,7 +464,7 @@ Deno.serve(async (req) => {
 
       let blocked = false;
       if (fresh.length) {
-        const result = await sendAll(token, chatId, chunk(fresh.map(tripBlock), "\n\n———\n\n"));
+        const result = await sendAll(token, chatId, withFooter(chunk(fresh.map(tripBlock), "\n\n———\n\n")));
         if (result === "ok") {
           const rows = fresh.map((t) => ({ user_id: profile.id, trip_id: t.id }));
           const { error } = await db.from("sent_notifications").upsert(rows, { onConflict: "user_id,trip_id" });
@@ -435,7 +480,7 @@ Deno.serve(async (req) => {
       // 6b. Daglig oppsummering
       const hours = profile.digest_hours ?? [];
       if (!blocked && hours.includes(oslo.hour) && !digestDoneSet.has(profile.id)) {
-        const result = await sendAll(token, chatId, digestMessages(userWatches, tripList, now));
+        const result = await sendAll(token, chatId, withFooter(digestMessages(userWatches, tripList, now)));
         if (result === "ok") {
           const { error } = await db
             .from("sent_digests")
@@ -466,6 +511,7 @@ Deno.serve(async (req) => {
     const days = (n: number) => new Date(now.getTime() - n * 86_400_000).toISOString();
     await db.from("sent_notifications").delete().lt("sent_at", days(60));
     await db.from("sent_digests").delete().lt("sent_at", days(30));
+    await db.from("watched_routes").delete().lt("date_to", today); // perioden er passert
 
     // 8. Status: sjekken virker
     const status = await readStatus(db);
