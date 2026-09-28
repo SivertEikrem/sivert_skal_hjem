@@ -109,6 +109,12 @@ function showRecoveryForm() {
   const tokenHash = params.get("token_hash");
   const type = params.get("type");
 
+  if (params.has("slettet")) {
+    history.replaceState(null, "", location.pathname);
+    show($("auth-msg"), "Kontoen din og alt som hørte til den er slettet.", "ok");
+    return;
+  }
+
   if (tokenHash && (type === "email" || type === "recovery")) {
     history.replaceState(null, "", location.pathname); // fjern koden fra adressefeltet
     const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type });

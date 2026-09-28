@@ -94,7 +94,31 @@
         <div class="hours" id="hours" role="group" aria-label="Klokkeslett for daglig oversikt"></div>
       </div>
     </section>
+
+    <!-- Konto -->
+    <section class="section" aria-labelledby="account-title">
+      <h2 id="account-title">Konto</h2>
+      <div class="panel">
+        <div class="panel-row">
+          <span>Logget inn som <strong id="account-email"></strong></span>
+          <button type="button" class="link-btn subtle" id="delete-start">Slett kontoen min</button>
+        </div>
+        <div class="form" id="delete-confirm" hidden>
+          <p>Dette sletter kontoen din, rutene du følger og koblingen til Telegram. Det kan ikke angres.</p>
+          <div class="button-row">
+            <button type="button" class="btn btn-danger" id="delete-yes">Ja, slett alt</button>
+            <button type="button" class="btn btn-quiet" id="delete-no">Avbryt</button>
+          </div>
+          <div id="delete-msg" class="notice error" hidden role="status"></div>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <footer class="site-footer">
+    <a href="personvern.html">Personvern</a>
+    <span>Ikke tilknyttet Hertz.</span>
+  </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>

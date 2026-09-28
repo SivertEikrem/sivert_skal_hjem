@@ -42,6 +42,7 @@ const map = createRouteMap($("map-fig"), {
   renderTelegram();
   renderWatches();
   renderSettings();
+  $("account-email").textContent = user.email ?? "";
   $("page").hidden = false;
   renderFreshness($("routes-updated"), await loadLastCheck());
 
@@ -298,3 +299,32 @@ function renderSettings() {
     ),
   );
 }
+
+// ------------------------------------------------------------ konto
+
+$("delete-start").addEventListener("click", () => {
+  $("delete-confirm").hidden = false;
+  $("delete-start").hidden = true;
+  $("delete-no").focus();
+});
+
+$("delete-no").addEventListener("click", () => {
+  $("delete-confirm").hidden = true;
+  $("delete-start").hidden = false;
+  $("delete-msg").hidden = true;
+});
+
+$("delete-yes").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  const { error } = await sb.rpc("delete_my_account");
+  if (error) {
+    console.error(error);
+    btn.disabled = false;
+    $("delete-msg").textContent = "Klarte ikke å slette kontoen. Prøv igjen om litt.";
+    $("delete-msg").hidden = false;
+    return;
+  }
+  await sb.auth.signOut().catch(() => {});
+  location.replace("login.html?slettet=1");
+});

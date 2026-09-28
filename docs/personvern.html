@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Personvern – Sivert skal hjem</title>
+  <script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./">
+      <svg width="34" height="12" viewBox="0 0 34 12" aria-hidden="true"><line x1="5" y1="6" x2="28" y2="6" style="stroke:var(--accent)" stroke-width="2.5"/><circle cx="5" cy="6" r="4" style="fill:var(--accent)"/><circle cx="29" cy="6" r="3.5" style="fill:var(--bg);stroke:var(--accent)" stroke-width="2.5"/></svg>
+      Sivert skal hjem
+    </a>
+    <nav aria-label="Hovedmeny">
+      <a class="navlink" href="oversikt.html">Alle biler</a>
+      <button class="icon-btn" type="button" data-theme-toggle></button>
+    </nav>
+  </header>
+
+  <main class="page">
+    <article class="prose">
+      <h1>Personvern</h1>
+      <p>Sivert skal hjem er et privat hobbyprosjekt laget av Sivert Eikrem. Siden varsler deg når Hertz Freerider har ledige biler på rutene du følger. Den er ikke tilknyttet Hertz.</p>
+
+      <h2>Hva som lagres</h2>
+      <ul>
+        <li>E-postadressen din og passordet ditt. Passordet lagres som en hash, slik at ingen, heller ikke vi, kan lese det.</li>
+        <li>Telegram-ID-en og Telegram-brukernavnet ditt, hvis du kobler til Telegram. Uten dem kan vi ikke sende deg varsler.</li>
+        <li>Rutene du følger og varselinnstillingene dine.</li>
+        <li>Hvilke biler du allerede har fått varsel om, så du ikke får samme varsel to ganger. Dette slettes automatisk etter 60 dager.</li>
+      </ul>
+      <p>Vi lagrer ikke navnet ditt eller telefonnummeret ditt. Tjenestene som er nevnt nedenfor, registrerer IP-adressen din i tekniske logger en kort periode, slik nesten alle nettsider gjør. Opplysningene brukes bare til å logge deg inn og sende deg varsler, og deles ikke med noen for andre formål.</p>
+
+      <h2>Tjenester som brukes</h2>
+      <ul>
+        <li><strong>Supabase</strong> lagrer kontoen din og rutene dine, og står for innloggingen.</li>
+        <li><strong>Resend</strong> sender e-postene, for eksempel når du bekrefter kontoen eller lager nytt passord.</li>
+        <li><strong>Telegram</strong> leverer varslene.</li>
+        <li><strong>GitHub Pages</strong> tar imot besøket når du åpner nettsiden, og <strong>Google Fonts</strong> leverer skrifttypene.</li>
+      </ul>
+      <p>Opplysningene om ledige biler hentes fra Hertz Freerider sine åpne data. Vi sender ingenting om deg til Hertz.</p>
+
+      <h2>Slette kontoen</h2>
+      <p>Du kan slette kontoen din når som helst under <a href="app.html">Mine ruter</a>, nederst på siden under «Konto». Da slettes kontoen, rutene dine, Telegram-koblingen og varselhistorikken med én gang. Samtalen med boten i Telegram kan du slette i Telegram-appen.</p>
+
+      <h2>Spørsmål</h2>
+      <p>Har du spørsmål om hva som er lagret om deg, kan du sende en e-post til <a href="mailto:trevis.eikrem@gmail.com">trevis.eikrem@gmail.com</a>.</p>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <a href="personvern.html" aria-current="page">Personvern</a>
+    <span>Ikke tilknyttet Hertz.</span>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+</body>
+</html>
