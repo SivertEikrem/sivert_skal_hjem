@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 
 let trips = [];
-let selectedCity = null;
+let selectedCity = new URLSearchParams(location.search).get("by") || null;
 const map = createRouteMap($("map-fig"), { onCityClick: (city) => selectCity(city) });
 
 // ------------------------------------------------------------ oppstart

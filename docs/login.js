@@ -109,6 +109,11 @@ function showRecoveryForm() {
   const tokenHash = params.get("token_hash");
   const type = params.get("type");
 
+  if (params.has("ny")) {
+    setMode("signup");
+    history.replaceState(null, "", location.pathname);
+  }
+
   if (params.has("slettet")) {
     history.replaceState(null, "", location.pathname);
     show($("auth-msg"), "Kontoen din og alt som hørte til den er slettet.", "ok");

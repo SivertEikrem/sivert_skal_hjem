@@ -3,17 +3,92 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sivert skal hjem</title>
-  <!-- Midlertidig: sender videre til innlogging eller appen. Byttes ut med ekte forside senere. -->
+  <title>Sivert skal hjem – varsel om ledige Hertz Freerider-biler</title>
+  <meta name="description" content="Få melding på Telegram i det Hertz Freerider har en ledig bil på ruten din.">
+  <script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-current="page">
+      <svg width="34" height="12" viewBox="0 0 34 12" aria-hidden="true"><line x1="5" y1="6" x2="28" y2="6" style="stroke:var(--accent)" stroke-width="2.5"/><circle cx="5" cy="6" r="4" style="fill:var(--accent)"/><circle cx="29" cy="6" r="3.5" style="fill:var(--bg);stroke:var(--accent)" stroke-width="2.5"/></svg>
+      Sivert skal hjem
+    </a>
+    <nav aria-label="Hovedmeny">
+      <a class="navlink" href="app.html" id="nav-mine" hidden>Mine ruter</a>
+      <a class="navlink" href="oversikt.html">Alle biler</a>
+      <button class="icon-btn" type="button" data-theme-toggle></button>
+      <a class="navlink" href="login.html" id="nav-login">Logg inn</a>
+    </nav>
+  </header>
+
+  <main class="page home">
+    <!-- Toppen -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-text">
+        <h1 id="hero-title">Gratis bil hjem, når den dukker opp.</h1>
+        <p class="lead">Hertz må flytte leiebiler mellom byene, og lar folk kjøre dem gratis. Bilene forsvinner fort. Velg rutene dine, så får du melding på Telegram i det en bil blir ledig.</p>
+        <div class="button-row">
+          <a class="btn" href="login.html?ny=1" id="cta-main">Lag gratis konto</a>
+          <a class="btn btn-quiet" href="oversikt.html">Se ledige biler</a>
+        </div>
+        <p class="auth-count" id="live-count" hidden><span class="dot" aria-hidden="true"></span><span></span></p>
+      </div>
+      <figure id="map-fig" class="hero-map">
+        <figcaption class="muted">Ledige biler akkurat nå. Trykk på en by for å se bilene.</figcaption>
+      </figure>
+    </section>
+
+    <!-- Slik fungerer det -->
+    <section class="section" aria-labelledby="how-title">
+      <h2 id="how-title">Slik fungerer det</h2>
+      <ol class="steps">
+        <li>
+          <h3>Velg rutene dine</h3>
+          <p class="muted">Skriv hvor du vil fra og til, gjerne med datoer. La et felt stå tomt for å følge alt fra eller til en by.</p>
+        </li>
+        <li>
+          <h3>Koble til Telegram</h3>
+          <p class="muted">Ett trykk, så sender boten varslene rett til mobilen din.</p>
+        </li>
+        <li>
+          <h3>Få varsel med en gang</h3>
+          <p class="muted">Hertz sjekkes hvert 5. minutt. Passer en bil, får du melding før den er borte.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- Ledige nå -->
+    <section class="section" aria-labelledby="now-title">
+      <div class="section-head">
+        <h2 id="now-title">Utløper snart</h2>
+        <span class="muted" id="updated"></span>
+      </div>
+      <ul class="board" id="board"></ul>
+      <p><a href="oversikt.html">Se alle ledige biler på kartet</a></p>
+    </section>
+
+    <!-- Om Freerider -->
+    <section class="section prose" aria-labelledby="about-title">
+      <h2 id="about-title">Hva er Hertz Freerider?</h2>
+      <p>Når leiebiler havner i feil by, trenger Hertz noen som kjører dem tilbake. Gjennom Freerider kan du kjøre en slik bil gratis mellom to stasjoner, innenfor et bestemt tidsrom. Selve bestillingen gjør du hos Hertz på hertzfreerider.no.</p>
+      <p>Denne siden følger med på Freerider for deg og sier fra når det dukker opp en bil som passer. Den er et privat hobbyprosjekt og ikke tilknyttet Hertz.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a href="personvern.html">Personvern</a>
+    <span>Ikke tilknyttet Hertz.</span>
+  </footer>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script>
-    (async () => {
-      const sb = window.supabase.createClient(window.APP_CONFIG.SUPABASE_URL, window.APP_CONFIG.SUPABASE_KEY);
-      const { data } = await sb.auth.getSession();
-      location.replace(data?.session ? "app.html" : "login.html");
-    })();
-  </script>
-</head>
-<body></body>
+  <script src="common.js"></script>
+  <script src="norway-map.js"></script>
+  <script src="map.js"></script>
+  <script src="index.js"></script>
+</body>
 </html>
