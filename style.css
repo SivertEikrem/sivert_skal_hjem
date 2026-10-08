@@ -363,7 +363,7 @@ button.navlink { border: 0; background: none; font: inherit; font-weight: 500; c
   display: grid;
   place-items: center;
   min-height: 2.9rem;
-  margin-top: 2px;
+  margin-top: auto; /* knappen nederst, også når kortene i en rad har ulik høyde */
   border-radius: 12px;
   background: var(--raised);
   color: var(--text);
@@ -659,9 +659,12 @@ button.navlink { border: 0; background: none; font: inherit; font-weight: 500; c
 
 .overview { gap: 1.5rem; }
 
+/* Alle biler får bredere side, så kortene får plass to og to */
+.wide { --page: 1240px; }
+
 .overview-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
   align-items: start;
   gap: 2.5rem;
 }
@@ -915,3 +918,6 @@ button.navlink { border: 0; background: none; font: inherit; font-weight: 500; c
   .steps li:not(:last-child)::after { top: 16px; left: 7px; width: 2px; height: calc(100% + 1.75rem - 16px); }
   .steps li { padding-top: 0; padding-left: 2.25rem; }
 }
+
+/* Kortene i lista på Alle biler: to og to når det er plass */
+.overview-list .board { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }

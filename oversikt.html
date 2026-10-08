@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alle ledige biler – Sivert skal hjem</title>
+  <script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="wide">
+  <header class="topbar">
+    <a class="brand" href="./">
+      <svg width="34" height="12" viewBox="0 0 34 12" aria-hidden="true"><line x1="5" y1="6" x2="28" y2="6" style="stroke:var(--accent)" stroke-width="2.5"/><circle cx="5" cy="6" r="4" style="fill:var(--accent)"/><circle cx="29" cy="6" r="3.5" style="fill:var(--bg);stroke:var(--accent)" stroke-width="2.5"/></svg>
+      Sivert skal hjem
+    </a>
+    <nav aria-label="Hovedmeny">
+      <a class="navlink" href="app.html" id="nav-mine" hidden>Mine ruter</a>
+      <a class="navlink" href="oversikt.html" aria-current="page">Alle biler</a>
+      <button class="icon-btn" type="button" data-theme-toggle></button>
+      <a class="navlink" href="login.html" id="nav-login">Logg inn</a>
+      <button class="navlink" type="button" id="nav-logout" hidden>Logg ut</button>
+    </nav>
+  </header>
+
+  <main class="page overview">
+    <div class="section-head">
+      <h1 id="count">Alle ledige biler</h1>
+      <span class="muted" id="updated"></span>
+    </div>
+
+    <div class="overview-grid">
+      <figure id="map-fig">
+        <figcaption class="muted">Trykk på en by for å se biler til og fra den. Knip eller bruk knappene for å zoome.</figcaption>
+      </figure>
+
+      <section class="section overview-list" aria-label="Liste over ledige biler">
+        <div class="filters">
+          <div class="field">
+            <label for="search">Søk</label>
+            <input class="input" id="search" type="search" placeholder="By, stasjon eller bil" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="sort">Sorter</label>
+            <select class="input" id="sort">
+              <option value="expire">Utløper først</option>
+              <option value="new">Nyeste først</option>
+              <option value="from">Fra, A–Å</option>
+              <option value="to">Til, A–Å</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="filter-note" id="filter-note" hidden>
+          <span></span>
+          <button type="button" class="link-btn" id="clear-city">Vis alle byer</button>
+        </div>
+
+        <ul class="board" id="list"></ul>
+        <p class="watch-empty" id="empty" hidden></p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <a href="personvern.html">Personvern</a>
+    <span>Et privat hobbyprosjekt.</span>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+  <script src="norway-map.js"></script>
+  <script src="map.js"></script>
+  <script src="oversikt.js"></script>
+</body>
+</html>
