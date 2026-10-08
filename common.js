@@ -82,26 +82,45 @@ function routeLine() {
   return el("span", { class: "route-line", "aria-hidden": "true" });
 }
 
-// Én tur som rad i avgangstavla
-function tripRow(t) {
-  const expires = t.expire_time ? new Date(t.expire_time) : null;
-  const left = expires ? expires.getTime() - Date.now() : Infinity;
-  const urgent = left < 24 * 3600 * 1000;
+// Små ikoner til kortene
+const ICON_CAL = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+const ICON_CLOCK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const ICON_CAR = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 16l1.5-5h11L19 16M3 16h18v3H3zM7 19v2M17 19v2"/></svg>';
+const ICON_FLAG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4M5 4h12l-2 4 2 4H5"/></svg>';
+const ICON_ARROW = '<svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true"><path d="M1 6h18M14 1l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const BOOKING_URL = "https://hertzfreerider.no";
 
-  const meta = [carName(t.car_model)];
-  if (t.available_at) meta.push(`hentes fra ${formatDato(t.available_at)}`);
+function iconText(svg, text) {
+  const span = el("span", {});
+  span.innerHTML = svg;
+  span.append(" " + text);
+  return span;
+}
+
+// Én tur som kort. Oransje = kan hentes nå, mørkt = kan hentes senere.
+function tripRow(t) {
+  const now = Date.now();
+  const expires = t.expire_time ? new Date(t.expire_time).getTime() : Infinity;
+  const left = expires - now;
+  const urgent = left < 24 * 3600 * 1000;
+  const availableAt = t.available_at ? new Date(t.available_at).getTime() : 0;
+  const later = availableAt > now;
+
+  const pills = [iconText(ICON_CAR, carName(t.car_model))];
+  if (t.latest_return) pills.push(iconText(ICON_FLAG, `Lever innen ${formatDato(t.latest_return)}`));
 
   return el(
     "li",
-    { class: urgent ? "trip urgent" : "trip" },
-    el("div", { class: "trip-route" }, el("span", {}, pen(t.from_name)), routeLine(), el("span", {}, pen(t.to_name))),
-    el("div", { class: "trip-meta" }, meta.join(", ")),
+    { class: ["card", later ? "later" : "", urgent ? "urgent" : ""].join(" ").trim() },
+    el("div", { class: "card-route" }, el("span", {}, pen(t.from_name)), iconText(ICON_ARROW, ""), el("span", {}, pen(t.to_name))),
     el(
       "div",
-      { class: "trip-when" },
-      "Utløper",
-      el("strong", {}, urgent ? formatIgjen(left) : formatDato(t.expire_time)),
+      { class: "card-box" },
+      el("div", { class: "card-row" }, iconText(ICON_CAL, "Hentes fra"), el("strong", {}, later ? formatDato(t.available_at) : "Nå")),
+      el("div", { class: "card-row" }, iconText(ICON_CLOCK, "Utløper"), el("strong", {}, urgent ? formatIgjen(left) : formatDato(t.expire_time))),
     ),
+    el("div", { class: "card-pills" }, pills.map((p) => { p.className = "pill"; return p; })),
+    el("a", { class: "card-btn", href: BOOKING_URL, target: "_blank", rel: "noopener" }, "Bestill"),
   );
 }
 
@@ -163,7 +182,7 @@ async function loadTrips() {
   return data;
 }
 
-// Når Hertz sist ble sjekket med hell
+// Når bilene sist ble sjekket med hell
 async function loadLastCheck() {
   const { data, error } = await sb.from("app_status").select("last_ok_at").eq("id", 1).maybeSingle();
   if (error) {
@@ -173,7 +192,7 @@ async function loadLastCheck() {
   return data?.last_ok_at ?? null;
 }
 
-// Skriver «Sjekket hos Hertz kl. 18:25», eller en advarsel hvis det er lenge siden
+// Skriver «Sist oppdatert kl. 18:25», eller en advarsel hvis det er lenge siden
 function renderFreshness(node, lastOk) {
   if (!lastOk) {
     node.textContent = "";
@@ -187,8 +206,8 @@ function renderFreshness(node, lastOk) {
   const when = sameDay ? `kl. ${pad(a.hour)}:${pad(a.minute)}` : formatDato(lastOk);
   const stale = Date.now() - then.getTime() > 20 * 60 * 1000;
   node.textContent = stale
-    ? `Siste sjekk hos Hertz var ${when}. Bilene kan være utdatert.`
-    : `Sjekket hos Hertz ${when}`;
+    ? `Sist oppdatert ${when}. Bilene kan være utdatert.`
+    : `Sist oppdatert ${when}`;
   node.classList.toggle("stale", stale);
 }
 
