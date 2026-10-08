@@ -26,7 +26,7 @@ const map = createRouteMap($("map-fig"), {
     count.hidden = false;
 
     map.setData({ trips: live });
-    $("board").replaceChildren(...live.slice(0, 5).map(tripRow));
+    $("board").replaceChildren(...live.slice(0, 4).map(tripRow));
     renderFreshness($("updated"), lastOk);
   } catch (err) {
     console.error(err);

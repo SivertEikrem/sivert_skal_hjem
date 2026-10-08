@@ -153,7 +153,7 @@ function showRecoveryForm() {
     count.querySelector("span:last-child").textContent =
       live.length === 1 ? "1 ledig bil akkurat nå" : `${live.length} ledige biler akkurat nå`;
     count.hidden = false;
-    $("live-board").append(...live.slice(0, 5).map(tripRow));
+    $("live-board").append(...live.slice(0, 3).map(tripRow));
   } catch (err) {
     console.error(err);
   }

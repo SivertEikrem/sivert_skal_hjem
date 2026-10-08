@@ -39,6 +39,8 @@ const map = createRouteMap($("map-fig"), {
   }
 
   $("cities").append(...cityData.cities.map((c) => el("option", { value: pen(c) })));
+  $("date-from").min = todayOslo();
+  $("date-to").min = todayOslo();
   renderTelegram();
   renderWatches();
   renderSettings();
@@ -148,10 +150,12 @@ async function startLink(e) {
 // ------------------------------------------------------------ ruter
 
 function watchTitle(w) {
+  const period = formatPeriod(w.date_from, w.date_to);
   return [
     el("span", {}, w.from_city ? pen(w.from_city) : "Hvor som helst"),
     routeLine(),
     el("span", {}, w.to_city ? pen(w.to_city) : "hvor som helst"),
+    period ? el("span", { class: "watch-dates" }, period) : null,
   ];
 }
 
@@ -182,9 +186,10 @@ function renderWatches() {
       const matches = live.filter((t) => matchesWatch(t, w));
       const count = matches.length === 1 ? "1 ledig" : `${matches.length} ledige`;
 
+      const when = w.date_from || w.date_to ? "i denne perioden" : "akkurat nå";
       const empty = profile.telegram_chat_id
-        ? "Ingen ledige biler akkurat nå. Du får melding på Telegram når det dukker opp en."
-        : "Ingen ledige biler akkurat nå. Koble til Telegram for å få melding når det dukker opp en.";
+        ? `Ingen ledige biler ${when}. Du får melding på Telegram når det dukker opp en.`
+        : `Ingen ledige biler ${when}. Koble til Telegram for å få melding når det dukker opp en.`;
 
       return el(
         "article",
@@ -226,9 +231,22 @@ $("add-route").addEventListener("submit", async (e) => {
   if (toText && !to) return showRouteMsg(`Finner ikke «${toText}». Velg en by fra listen.`);
   if (from && to && from === to) return showRouteMsg("Fra og til kan ikke være samme by.");
 
-  const { data, error } = await sb.from("watched_routes").insert({ from_city: from, to_city: to }).select().single();
+  // Valgfri periode. Er bare én dato fylt inn, gjelder ruten den ene dagen.
+  let dateFrom = $("date-from").value || null;
+  let dateTo = $("date-to").value || null;
+  if (dateFrom && !dateTo) dateTo = dateFrom;
+  if (dateTo && !dateFrom) dateFrom = dateTo;
+  if (dateFrom && dateTo < dateFrom) return showRouteMsg("Til-datoen kan ikke være før fra-datoen.");
+  if (dateTo && dateTo < todayOslo()) return showRouteMsg("Perioden er allerede passert. Velg datoer fra i dag og fremover.");
+
+  const { data, error } = await sb
+    .from("watched_routes")
+    .insert({ from_city: from, to_city: to, date_from: dateFrom, date_to: dateTo })
+    .select()
+    .single();
   if (error) {
-    if (error.code === "23505") return showRouteMsg("Du følger allerede denne ruten.");
+    if (error.code === "23505") return showRouteMsg("Du følger allerede denne ruten for de samme datoene.");
+    if (error.message === "route_limit") return showRouteMsg("Du kan følge maks 20 ruter. Fjern en rute før du legger til en ny.");
     console.error(error);
     return showRouteMsg("Klarte ikke å lagre ruten. Prøv igjen.");
   }
@@ -236,6 +254,9 @@ $("add-route").addEventListener("submit", async (e) => {
   watches.push(data);
   $("from").value = "";
   $("to").value = "";
+  $("date-from").value = "";
+  $("date-to").value = "";
+  $("dates").open = false;
   renderWatches();
 });
 

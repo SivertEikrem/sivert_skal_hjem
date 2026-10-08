@@ -57,6 +57,20 @@
           <input class="input" id="to" list="cities" placeholder="Hvor som helst" autocomplete="off">
         </div>
         <button class="btn" type="submit">Følg rute</button>
+        <details class="dates" id="dates">
+          <summary>Bare en bestemt periode? Velg datoer</summary>
+          <div class="date-row">
+            <div class="field">
+              <label for="date-from">Fra dato</label>
+              <input class="input" id="date-from" type="date">
+            </div>
+            <div class="field">
+              <label for="date-to">Til dato</label>
+              <input class="input" id="date-to" type="date">
+            </div>
+          </div>
+          <p class="muted small">Du får bare varsel om biler som kan hentes og leveres innenfor disse datoene. Ruten fjernes av seg selv når perioden er over.</p>
+        </details>
       </form>
       <datalist id="cities"></datalist>
       <div id="route-msg" class="notice" hidden role="status"></div>
@@ -117,7 +131,7 @@
 
   <footer class="site-footer">
     <a href="personvern.html">Personvern</a>
-    <span>Ikke tilknyttet Hertz.</span>
+    <span>Et privat hobbyprosjekt.</span>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
