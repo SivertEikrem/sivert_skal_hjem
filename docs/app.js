@@ -4,6 +4,7 @@ let user = null;
 let profile = null;
 let watches = [];
 let trips = [];
+let tipCities = [];
 let cityData = { cities: [], resolve: () => null };
 let linkPoll = null;
 let selectedCity = null;
@@ -27,11 +28,12 @@ const map = createRouteMap($("map-fig"), {
   user = data.user;
 
   try {
-    const [p, w, t, c] = await Promise.all([loadProfile(), loadWatches(), loadTrips(), loadCities()]);
+    const [p, w, t, c, tc] = await Promise.all([loadProfile(), loadWatches(), loadTrips(), loadCities(), loadTipCities()]);
     profile = p;
     watches = w;
     trips = t;
     cityData = c;
+    tipCities = tc;
   } catch (err) {
     console.error(err);
     document.body.append(el("p", { class: "page notice error" }, "Klarte ikke å hente data. Last siden på nytt."));
@@ -43,6 +45,7 @@ const map = createRouteMap($("map-fig"), {
   $("date-to").min = todayOslo();
   renderTelegram();
   renderWatches();
+  renderTips();
   renderSettings();
   $("account-email").textContent = user.email ?? "";
   $("page").hidden = false;
@@ -266,6 +269,74 @@ async function removeWatch(w) {
   watches = watches.filter((x) => x.id !== w.id);
   renderWatches();
 }
+
+// ------------------------------------------------------------ tips fra hjemferd.no
+
+async function loadTipCities() {
+  const { data, error } = await sb.from("tip_cities").select("*").order("created_at");
+  if (error) throw error;
+  return data;
+}
+
+function showTipMsg(text, kind = "error") {
+  const m = $("tip-msg");
+  m.textContent = text;
+  m.className = "notice " + kind;
+  m.hidden = !text;
+}
+
+function renderTips() {
+  const list = $("tip-list");
+  if (!tipCities.length) {
+    list.replaceChildren(el("li", { class: "chips-empty muted" }, "Du følger ingen byer ennå."));
+    return;
+  }
+  list.replaceChildren(
+    ...tipCities.map((t) =>
+      el(
+        "li",
+        { class: "chip" },
+        pen(t.city),
+        el(
+          "button",
+          {
+            type: "button",
+            class: "chip-remove",
+            "aria-label": `Slutt å følge ${pen(t.city)}`,
+            onclick: async () => {
+              const { error } = await sb.from("tip_cities").delete().eq("id", t.id);
+              if (error) return showTipMsg("Klarte ikke å fjerne byen. Prøv igjen.");
+              tipCities = tipCities.filter((x) => x.id !== t.id);
+              renderTips();
+            },
+          },
+          "×",
+        ),
+      ),
+    ),
+  );
+}
+
+$("add-tip").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  showTipMsg("");
+  const raw = $("tip-city").value.trim();
+  if (raw.length < 2) return showTipMsg("Skriv inn navnet på en by.");
+  // Bruk den kjente byen hvis den finnes, ellers teksten slik den er skrevet
+  const city = cityData.resolve(raw) ?? raw.toUpperCase().replace(/\s+/g, " ");
+  if (tipCities.some((t) => t.city === city)) return showTipMsg("Du følger allerede denne byen.");
+
+  const { data, error } = await sb.from("tip_cities").insert({ city }).select().single();
+  if (error) {
+    if (error.code === "23505") return showTipMsg("Du følger allerede denne byen.");
+    if (error.message === "tip_limit") return showTipMsg("Du kan følge maks 10 byer. Fjern en før du legger til en ny.");
+    console.error(error);
+    return showTipMsg("Klarte ikke å lagre byen. Prøv igjen.");
+  }
+  tipCities.push(data);
+  $("tip-city").value = "";
+  renderTips();
+});
 
 // ------------------------------------------------------------ innstillinger
 

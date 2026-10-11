@@ -83,6 +83,23 @@
       </div>
     </section>
 
+    <!-- Tips fra hjemferd.no -->
+    <section class="section" aria-labelledby="tips-title">
+      <div class="section-head">
+        <h2 id="tips-title">Tips om flere returbiler</h2>
+      </div>
+      <p class="muted">Det finnes returbiler på hjemferd.no også. Legg inn en by, så sier vi fra på Telegram når det dukker opp en ny bil til eller fra den byen der. Vi viser ikke bilene her, bare at det er verdt å ta en titt.</p>
+      <form class="add-tip" id="add-tip" novalidate>
+        <div class="field">
+          <label for="tip-city">By</label>
+          <input class="input" id="tip-city" list="cities" placeholder="For eksempel Ålesund" autocomplete="off" maxlength="40">
+        </div>
+        <button class="btn" type="submit">Følg by</button>
+      </form>
+      <div id="tip-msg" class="notice" hidden role="status"></div>
+      <ul class="chips" id="tip-list"></ul>
+    </section>
+
     <!-- Innstillinger -->
     <section class="section" aria-labelledby="settings-title">
       <h2 id="settings-title">Varselinnstillinger</h2>

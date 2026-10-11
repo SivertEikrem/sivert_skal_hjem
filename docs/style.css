@@ -363,7 +363,7 @@ button.navlink { border: 0; background: none; font: inherit; font-weight: 500; c
   display: grid;
   place-items: center;
   min-height: 2.9rem;
-  margin-top: 2px;
+  margin-top: auto; /* knappen nederst, også når kortene i en rad har ulik høyde */
   border-radius: 12px;
   background: var(--raised);
   color: var(--text);
@@ -659,9 +659,12 @@ button.navlink { border: 0; background: none; font: inherit; font-weight: 500; c
 
 .overview { gap: 1.5rem; }
 
+/* Alle biler får bredere side, så kortene får plass to og to */
+.wide { --page: 1240px; }
+
 .overview-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
   align-items: start;
   gap: 2.5rem;
 }
@@ -915,3 +918,56 @@ button.navlink { border: 0; background: none; font: inherit; font-weight: 500; c
   .steps li:not(:last-child)::after { top: 16px; left: 7px; width: 2px; height: calc(100% + 1.75rem - 16px); }
   .steps li { padding-top: 0; padding-left: 2.25rem; }
 }
+
+/* Kortene i lista på Alle biler: to og to når det er plass */
+.overview-list .board { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+
+/* ------------------------------------------------------------ tips om flere returbiler */
+
+.add-tip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.75rem;
+  max-width: 32rem;
+}
+
+@media (max-width: 480px) { .add-tip { grid-template-columns: 1fr; } }
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem 0.35rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-weight: 500;
+}
+
+.chip-remove {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chip-remove:hover { background: var(--line); color: var(--text); }
+
+.chips-empty { list-style: none; }
