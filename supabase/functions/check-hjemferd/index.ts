@@ -116,7 +116,15 @@ function parseListings(html: string): Listing[] {
     }
     buffer = [];
   }
-  return listings;
+  // Samme annonse kan stå flere ganger på siden (for eksempel én Bestill-knapp for
+  // mobil og én for PC). Behold én per id, helst den som har med både fra og til.
+  const unique = new Map<string, Listing>();
+  for (const l of listings) {
+    const prev = unique.get(l.id);
+    const score = (x: Listing) => (x.from_text ? 1 : 0) + (x.to_text ? 1 : 0);
+    if (!prev || score(l) > score(prev)) unique.set(l.id, l);
+  }
+  return [...unique.values()];
 }
 
 async function selectAll<T>(db: any, table: string, columns: string, filter?: (q: any) => any): Promise<T[]> {
