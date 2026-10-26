@@ -32,6 +32,9 @@ export const PAUSE_BETWEEN_SENDS_MS = 600;
 // Forsøk per kjøring, enten de lykkes eller ikke, så én kjøring holder seg godt innenfor
 // tidsgrensen for Edge Functions. Resten tas i neste kjøring.
 export const MAX_ATTEMPTS_PER_RUN = 100;
+// Vi begynner ikke på nye sendinger etter dette. Tidsgrensen for Edge Functions er 150 sekunder,
+// og blir en kjøring drept etter sending men før lagring, kan brukeren få samme e-post to ganger.
+export const MAX_RUN_MS = 90_000;
 // En bruker Resend har avvist prøves ikke igjen før etter så lang tid. Da kan noen få dårlige
 // adresser aldri stå i veien for de gyldige, og vi hamrer ikke på Resend hvert 5. minutt.
 export const REJECT_COOLDOWN_MS = 24 * 60 * 60_000;
@@ -142,6 +145,7 @@ export async function run(deps: Deps): Promise<RunResult> {
 
   for (const userId of subscribers) {
     if (attempted >= MAX_ATTEMPTS_PER_RUN) break; // resten tas i neste kjøring
+    if (deps.now().getTime() - now.getTime() > MAX_RUN_MS) break; // også resten av tiden
     try {
       const fresh = selectFresh(trips, watchesByUser.get(userId) ?? [], sentByUser.get(userId) ?? new Set());
       if (!fresh.length) continue;
@@ -153,8 +157,9 @@ export async function run(deps: Deps): Promise<RunResult> {
 
       const to = await deps.getEmail(userId);
       if (!to) {
+        // Ikke en feil i kjøringen: telles i hoppetOver, ellers ville én slik bruker holdt
+        // hver kjøring rød og druknet ekte feil.
         stats.hoppetOver++;
-        feil.push(`${who(userId)}: har ikke en bekreftet e-postadresse`);
         continue;
       }
 

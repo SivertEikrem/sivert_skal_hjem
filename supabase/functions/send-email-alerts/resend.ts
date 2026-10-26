@@ -5,7 +5,7 @@
 //   rejected  Resend nekter akkurat denne e-posten (ugyldig adresse e.l.): hopp over mottakeren
 //   retry     midlertidig feil (nettverk, 429, 5xx): prøv igjen senere
 
-import type { Email } from "./logic.ts";
+import { type Email, SETTINGS_URL } from "./logic.ts";
 
 export const RESEND_URL = "https://api.resend.com/emails";
 const TIMEOUT_MS = 15_000;
@@ -47,7 +47,9 @@ async function rawErrorMessage(res: Response): Promise<string> {
 
 /** Gjelder feilen avsenderen (EMAIL_FROM, domenet) og ikke mottakeren? Da vil den ramme alle. */
 function concernsSender(message: string): boolean {
-  return /`from`|\bfrom\b.{0,20}\bfield|sender|domain|not verified/i.test(message);
+  // Bevisst smalt: løse ord som «domain» eller «sender» kan stå i feil som gjelder mottakeren,
+  // og da ville én dårlig adresse stoppet alle.
+  return /`from`|\bfrom\b.{0,20}\bfield|not verified/i.test(message);
 }
 
 export async function sendViaResend(
@@ -70,6 +72,8 @@ export async function sendViaResend(
         subject: mail.email.subject,
         html: mail.email.html,
         text: mail.email.text,
+        // Lar e-postklienter vise «Avslutt abonnement», så færre trykker «Meld som spam»
+        headers: { "List-Unsubscribe": `<${SETTINGS_URL}>` },
         ...(config.replyTo ? { reply_to: config.replyTo } : {}),
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -94,7 +98,9 @@ export async function sendViaResend(
       message: `Resend avviste nøkkelen eller avsenderen (${res.status})${suffix}. Sjekk RESEND_API_KEY og EMAIL_FROM.`,
     };
   }
-  if (res.status === 429 || res.status >= 500) {
+  // 409 gjelder idempotency-nøkkelen (for eksempel to kjøringer samtidig). Det sier ingenting om
+  // mottakeren, og må ikke gi et døgns utsettelse. Prøv igjen neste kjøring.
+  if (res.status === 429 || res.status === 409 || res.status >= 500) {
     return { status: "retry", message: `Resend svarte ${res.status}${suffix}` };
   }
   // Gjelder feilen avsenderen, rammer den alle, så vi stopper i stedet for å avvise hver bruker

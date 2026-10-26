@@ -3,6 +3,7 @@ import {
   type Deps,
   MAX_ATTEMPTS_PER_RUN,
   MAX_REJECTED_IN_A_ROW,
+  MAX_RUN_MS,
   MAX_RETRYABLE_FAILURES,
   PAUSE_BETWEEN_SENDS_MS,
   type RejectedRow,
@@ -162,17 +163,16 @@ Deno.test("run: databasefeil stopper alt og forklarer", async () => {
   }
 });
 
-Deno.test("run: bruker uten bekreftet e-post hoppes over, de andre får sin", async () => {
+Deno.test("run: bruker uten bekreftet e-post hoppes over uten å gjøre kjøringen rød", async () => {
   const { deps, sends, marks } = setup({
     subscribers: ["u1", "u2"],
     emails: { u1: null },
   });
   const res = await run(deps);
-  assertFalse(res.ok); // tydelig tilbakemelding om at noe ikke ble sendt
+  assert(res.ok, JSON.stringify(res)); // én slik bruker skal ikke holde hver kjøring rød
   assertEquals(res.stats.hoppetOver, 1);
   assertEquals(sends.map((s) => s.to), ["u2@example.com"]);
   assertEquals(marks.map((m) => m.userId), ["u2"]);
-  assertStringIncludes(res.feil.join("\n"), "bekreftet e-postadresse");
 });
 
 Deno.test("run: avvist e-post gir feil for den brukeren, men markeres ikke som sendt", async () => {
@@ -501,4 +501,29 @@ Deno.test("run: mange dårlige adresser først blokkerer ikke de gyldige. Køen 
     rejected = [...rejected, ...rejects.map((r) => ({ user_id: r.userId, rejected_at: NOW.toISOString() }))];
   }
   assertEquals(delivered.sort(), ["u1@example.com", "u2@example.com", "u3@example.com"]);
+});
+
+Deno.test("run: slutter å sende når kjøringen har tatt for lang tid, uten å regne det som feil", async () => {
+  let t = NOW.getTime();
+  let first = true;
+  const subs = Array.from({ length: 40 }, (_, i) => `u${i}`);
+  const { deps, sends } = setup({
+    subscribers: subs,
+    overrides: {
+      // første kall er start av kjøringen. Deretter går det 10 sekunder for hvert kall
+      now: () => {
+        if (first) {
+          first = false;
+          return new Date(t);
+        }
+        t += 10_000;
+        return new Date(t);
+      },
+    },
+  });
+  const res = await run(deps);
+  assert(res.ok, JSON.stringify(res));
+  assertFalse(res.avbrutt);
+  assert(sends.length > 0 && sends.length < subs.length, `sendte ${sends.length}`);
+  assert(sends.length <= Math.floor(MAX_RUN_MS / 10_000) + 1);
 });

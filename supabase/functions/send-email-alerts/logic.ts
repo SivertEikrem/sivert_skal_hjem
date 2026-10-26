@@ -15,9 +15,10 @@ export const DISCLAIMER = "Sivert skal hjem er et privat hobbyprosjekt og er ikk
 
 // Så mange biler i én e-post. Resten blir stående som usendt og kommer i neste e-post.
 export const MAX_TRIPS_PER_EMAIL = 30;
-// check-trips kjører hvert 5. minutt. Er trips eldre enn dette, har den stoppet,
-// og tabellen kan inneholde biler som ikke finnes lenger.
-export const TRIPS_MAX_AGE_MS = 15 * 60_000;
+// check-trips kjører hvert 5. minutt, og e-post går ett minutt etter. En rad som ikke er sett på
+// så lang tid, har check-trips gått glipp av minst én gang, og bilen kan være borte.
+// Heller en pause i e-postene enn e-post om biler som ikke finnes.
+export const TRIPS_MAX_AGE_MS = 8 * 60_000;
 
 const MAANEDER = ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"];
 const SMAA_ORD = new Set(["i", "og", "på", "ved"]);
@@ -151,7 +152,7 @@ export function selectFresh(
 }
 
 /**
- * Bare biler som check-trips har sett nylig. check-trips oppdaterer last_seen_at på alle biler
+ * Bare biler som check-trips har sett de siste minuttene. check-trips oppdaterer last_seen_at på alle biler
  * Hertz har akkurat nå, så en rad som ikke er oppdatert på en stund finnes trolig ikke lenger
  * (for eksempel hvis check-trips stoppet før den fikk ryddet bort gamle rader).
  * Ugyldige tidsstempler regnes som gamle: i tvil sender vi ingenting.

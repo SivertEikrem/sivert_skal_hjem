@@ -37,6 +37,7 @@ Deno.test("resend: sender riktig forespørsel", async () => {
   assertEquals(body.html, MAIL.email.html);
   assertEquals(body.text, MAIL.email.text);
   assertFalse("reply_to" in body);
+  assertEquals(body.headers, { "List-Unsubscribe": "<https://sivertskalhjem.no/app.html#epost>" });
 });
 
 Deno.test("resend: reply_to tas med når den er satt", async () => {
@@ -55,14 +56,14 @@ Deno.test("resend: 401 og 403 er fatale (feil nøkkel eller avsender)", async ()
 });
 
 Deno.test("resend: 429 og 5xx kan prøves igjen", async () => {
-  for (const status of [429, 500, 502, 503]) {
+  for (const status of [429, 409, 500, 502, 503]) {
     const { fn } = fakeFetch(() => reply(status));
     assertEquals((await sendViaResend(CONFIG, MAIL, fn)).status, "retry");
   }
 });
 
 Deno.test("resend: øvrige 4xx gjelder bare denne e-posten", async () => {
-  for (const status of [400, 404, 409, 422]) {
+  for (const status of [400, 404, 422]) {
     const { fn } = fakeFetch(() => reply(status, { message: "invalid `to` field" }));
     assertEquals((await sendViaResend(CONFIG, MAIL, fn)).status, "rejected");
   }
@@ -144,6 +145,24 @@ Deno.test("resend: feil som gjelder avsenderen er fatale, ikke per bruker", asyn
 Deno.test("resend: feil som gjelder mottakeren er ikke fatale", async () => {
   for (const message of ["Invalid `to` field.", "The `to` address is not valid", "Validation error", ""]) {
     const { fn } = fakeFetch(() => reply(422, message ? { message } : {}));
+    assertEquals((await sendViaResend(CONFIG, MAIL, fn)).status, "rejected", message);
+  }
+});
+
+Deno.test("resend: 409 på idempotency-nøkkelen er ikke en avvisning av mottakeren", async () => {
+  for (const name of ["concurrent_idempotent_requests", "invalid_idempotent_request"]) {
+    const { fn } = fakeFetch(() => reply(409, { name, message: "Same key" }));
+    assertEquals((await sendViaResend(CONFIG, MAIL, fn)).status, "retry", name);
+  }
+});
+
+Deno.test("resend: løse ord som «domain» og «sender» i en mottakerfeil gjør den ikke fatal", async () => {
+  for (const message of [
+    "The recipient domain does not accept mail",
+    "Sender or recipient is on the suppression list",
+    "Invalid `to` field: domain example is not valid",
+  ]) {
+    const { fn } = fakeFetch(() => reply(422, { message }));
     assertEquals((await sendViaResend(CONFIG, MAIL, fn)).status, "rejected", message);
   }
 });

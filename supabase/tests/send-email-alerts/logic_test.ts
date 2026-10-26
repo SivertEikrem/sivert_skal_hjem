@@ -143,9 +143,9 @@ Deno.test("freshTrips: fjerner gamle rader selv når andre er ferske", () => {
 });
 
 Deno.test("freshTrips: grensen er inklusiv", () => {
-  const exactly = new Date(NOW.getTime() - 15 * 60_000).toISOString();
+  const exactly = new Date(NOW.getTime() - 8 * 60_000).toISOString();
   assertEquals(freshTrips([trip({ last_seen_at: exactly })], NOW).length, 1);
-  const justOver = new Date(NOW.getTime() - 15 * 60_000 - 1).toISOString();
+  const justOver = new Date(NOW.getTime() - 8 * 60_000 - 1).toISOString();
   assertEquals(freshTrips([trip({ last_seen_at: justOver })], NOW).length, 0);
 });
 
