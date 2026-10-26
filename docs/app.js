@@ -162,6 +162,62 @@ function watchTitle(w) {
   ];
 }
 
+// ------------------------------------------------------------ mønstre per rute
+
+const UKEDAGER_FLERTALL = ["mandager", "tirsdager", "onsdager", "torsdager", "fredager", "lørdager", "søndager"];
+const statsCache = new Map(); // "FRA|TIL" -> Promise<stats | null>
+
+function loadRouteStats(w) {
+  const key = `${w.from_city ?? ""}|${w.to_city ?? ""}`;
+  if (!statsCache.has(key)) {
+    statsCache.set(
+      key,
+      sb
+        .rpc("route_stats", { p_from: w.from_city, p_to: w.to_city })
+        .then(({ data, error }) => (error ? (console.error(error), null) : (data?.[0] ?? null)))
+        .catch(() => null),
+    );
+  }
+  return statsCache.get(key);
+}
+
+function statsText(st) {
+  if (!st || !st.historikk_fra) return null;
+  const startDays = (Date.now() - new Date(st.historikk_fra).getTime()) / 86_400_000;
+  const since = formatDato(st.historikk_fra).replace(/ kl\..*$/, "");
+
+  if (!st.biler_90_dager) {
+    return `Ingen biler på denne ruten siden vi begynte å følge med ${since}.`;
+  }
+  const n = st.biler_30_dager;
+  const parts = [];
+  parts.push(
+    startDays < 30
+      ? `${st.biler_90_dager} ${st.biler_90_dager === 1 ? "bil" : "biler"} siden ${since}`
+      : `${n} ${n === 1 ? "bil" : "biler"} de siste 30 dagene`,
+  );
+  if (st.biler_90_dager >= 3 && st.vanligste_dag) parts.push(`oftest på ${UKEDAGER_FLERTALL[st.vanligste_dag - 1]}`);
+  let text = parts.join(", ") + ".";
+  if (st.snitt_timer != null) {
+    const t = Number(st.snitt_timer);
+    text += t < 1 ? " Bilene forsvinner som regel i løpet av en time." : ` En bil ligger ute i snitt ${Math.round(t)} timer.`;
+  }
+  return text;
+}
+
+function statsLine(w) {
+  const p = el("p", { class: "watch-stats muted" });
+  p.hidden = true;
+  loadRouteStats(w).then((st) => {
+    const text = statsText(st);
+    if (text) {
+      p.textContent = text;
+      p.hidden = false;
+    }
+  });
+  return p;
+}
+
 function renderWatches() {
   const box = $("watches");
   const now = Date.now();
@@ -207,6 +263,7 @@ function renderWatches() {
             "Slutt å følge",
           ),
         ),
+        statsLine(w),
         matches.length ? el("ul", { class: "board" }, matches.map(tripRow)) : el("p", { class: "watch-empty" }, empty),
       );
     }),
@@ -347,7 +404,50 @@ function flash(id) {
   n._t = setTimeout(() => (n.hidden = true), 1800);
 }
 
+function renderQuiet() {
+  const toggle = $("quiet-toggle");
+  const fromSel = $("quiet-from");
+  const toSel = $("quiet-to");
+  const on = profile.quiet_from != null && profile.quiet_to != null;
+
+  if (!fromSel.options.length) {
+    for (let h = 0; h < 24; h++) {
+      fromSel.append(el("option", { value: String(h) }, `${pad(h)}:00`));
+      toSel.append(el("option", { value: String(h) }, `${pad(h)}:00`));
+    }
+  }
+  toggle.checked = on;
+  fromSel.value = String(on ? profile.quiet_from : 23);
+  toSel.value = String(on ? profile.quiet_to : 7);
+  $("quiet-row").hidden = !on;
+  $("quiet-help").hidden = !on;
+
+  const save = async () => {
+    const enabled = toggle.checked;
+    let from = enabled ? Number(fromSel.value) : null;
+    let to = enabled ? Number(toSel.value) : null;
+    if (enabled && from === to) {
+      toSel.value = String((from + 8) % 24);
+      to = Number(toSel.value);
+    }
+    const { error } = await sb.from("profiles").update({ quiet_from: from, quiet_to: to }).eq("id", user.id);
+    if (error) {
+      console.error(error);
+      return alert("Klarte ikke å lagre. Prøv igjen.");
+    }
+    profile.quiet_from = from;
+    profile.quiet_to = to;
+    $("quiet-row").hidden = !enabled;
+    $("quiet-help").hidden = !enabled;
+    flash("quiet-saved");
+  };
+  toggle.onchange = save;
+  fromSel.onchange = save;
+  toSel.onchange = save;
+}
+
 function renderSettings() {
+  renderQuiet();
   const toggle = $("notify-toggle");
   toggle.checked = profile.notifications_enabled;
   toggle.onchange = async () => {
