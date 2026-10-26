@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mine ruter – Sivert skal hjem</title>
   <script>try{var t=localStorage.getItem("tema");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="theme-color" content="#d83f00">
+  <meta name="apple-mobile-web-app-title" content="Skal hjem">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
@@ -83,6 +88,23 @@
       </div>
     </section>
 
+    <!-- Tips fra hjemferd.no -->
+    <section class="section" aria-labelledby="tips-title">
+      <div class="section-head">
+        <h2 id="tips-title">Tips om flere returbiler</h2>
+      </div>
+      <p class="muted">Det finnes returbiler på hjemferd.no også. Legg inn en by, så sier vi fra på Telegram når det dukker opp en ny bil til eller fra den byen der. Vi viser ikke bilene her, bare at det er verdt å ta en titt.</p>
+      <form class="add-tip" id="add-tip" novalidate>
+        <div class="field">
+          <label for="tip-city">By</label>
+          <input class="input" id="tip-city" list="cities" placeholder="For eksempel Ålesund" autocomplete="off" maxlength="40">
+        </div>
+        <button class="btn" type="submit">Følg by</button>
+      </form>
+      <div id="tip-msg" class="notice" hidden role="status"></div>
+      <ul class="chips" id="tip-list"></ul>
+    </section>
+
     <!-- Innstillinger -->
     <section class="section" aria-labelledby="settings-title">
       <h2 id="settings-title">Varselinnstillinger</h2>
@@ -106,6 +128,26 @@
         </div>
         <p class="muted">Velg klokkeslett for en melding med alle ledige biler på rutene dine, også de du allerede har fått varsel om.</p>
         <div class="hours" id="hours" role="group" aria-label="Klokkeslett for daglig oversikt"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-row">
+          <label class="switch">
+            <input type="checkbox" id="quiet-toggle">
+            Stille timer om natta
+          </label>
+          <span class="saved" id="quiet-saved" hidden>Lagret</span>
+        </div>
+        <div class="quiet-row" id="quiet-row">
+          <div class="field">
+            <label for="quiet-from">Fra kl.</label>
+            <select class="input" id="quiet-from"></select>
+          </div>
+          <div class="field">
+            <label for="quiet-to">Til kl.</label>
+            <select class="input" id="quiet-to"></select>
+          </div>
+        </div>
+        <p class="muted" id="quiet-help">Varsler om nye biler venter til stillheten er over, og kommer da samlet i én melding. Daglig oversikt sendes som valgt.</p>
       </div>
     </section>
 
@@ -131,7 +173,7 @@
 
   <footer class="site-footer">
     <a href="personvern.html">Personvern</a>
-    <span>Ikke tilknyttet Hertz.</span>
+    <span>Et privat hobbyprosjekt.</span>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
