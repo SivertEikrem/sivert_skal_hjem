@@ -16,20 +16,22 @@ import {
   type Email,
   idempotencyKey,
   MAX_TRIPS_PER_EMAIL,
+  freshTrips,
   selectFresh,
   type Trip,
-  tripsAreFresh,
   type Watch,
 } from "./logic.ts";
 import type { OutgoingMail, SendResult } from "./resend.ts";
 
 export const MAX_RETRYABLE_FAILURES = 3;
 // Så mange avvisninger på rad uten en eneste vellykket sending tyder på feil oppsett
-// (for eksempel EMAIL_FROM eller domenet), ikke på tre brukere med dårlige adresser.
-export const MAX_REJECTED_IN_A_ROW = 3;
+// (for eksempel EMAIL_FROM eller domenet), ikke på noen få brukere med dårlige adresser.
+// Feil som tydelig gjelder avsenderen stopper kjøringen med en gang (se resend.ts).
+export const MAX_REJECTED_IN_A_ROW = 10;
 export const PAUSE_BETWEEN_SENDS_MS = 600;
-// Holder én kjøring godt innenfor tidsgrensen for Edge Functions. Resten tas i neste kjøring.
-export const MAX_EMAILS_PER_RUN = 100;
+// Forsøk per kjøring, enten de lykkes eller ikke, så én kjøring holder seg godt innenfor
+// tidsgrensen for Edge Functions. Resten tas i neste kjøring.
+export const MAX_ATTEMPTS_PER_RUN = 100;
 
 export type SentRow = { user_id: string; trip_id: string };
 
@@ -91,8 +93,9 @@ export async function run(deps: Deps): Promise<RunResult> {
   let sent: SentRow[];
   const now = deps.now();
   try {
-    trips = await deps.loadTrips();
-    if (!tripsAreFresh(trips, now)) {
+    const all = await deps.loadTrips();
+    trips = freshTrips(all, now);
+    if (all.length && !trips.length) {
       return result(
         "Bil-listen er utdatert, så check-trips har trolig stoppet. Sender ingenting før den virker igjen.",
       );
@@ -123,7 +126,7 @@ export async function run(deps: Deps): Promise<RunResult> {
   let attempted = 0;
 
   for (const userId of subscribers) {
-    if (stats.epostSendt >= MAX_EMAILS_PER_RUN) break; // resten tas i neste kjøring
+    if (attempted >= MAX_ATTEMPTS_PER_RUN) break; // resten tas i neste kjøring
     try {
       const fresh = selectFresh(trips, watchesByUser.get(userId) ?? [], sentByUser.get(userId) ?? new Set());
       if (!fresh.length) continue;

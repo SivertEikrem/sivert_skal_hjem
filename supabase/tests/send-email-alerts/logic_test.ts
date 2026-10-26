@@ -10,7 +10,7 @@ import {
   SETTINGS_URL,
   SITE_URL,
   subjectFor,
-  tripsAreFresh,
+  freshTrips,
 } from "../../functions/send-email-alerts/logic.ts";
 import { NOW, trip, watch } from "./helpers.ts";
 
@@ -126,35 +126,39 @@ Deno.test("selectFresh: endrer ikke input", () => {
   assertEquals(trips, copy);
 });
 
-// ------------------------------------------------------------ tripsAreFresh
+// ------------------------------------------------------------ freshTrips
 
-Deno.test("tripsAreFresh: tom liste er greit", () => {
-  assert(tripsAreFresh([], NOW));
+Deno.test("freshTrips: tom liste gir tom liste", () => {
+  assertEquals(freshTrips([], NOW), []);
 });
 
-Deno.test("tripsAreFresh: nylig oppdatert er greit", () => {
-  assert(tripsAreFresh([trip()], NOW));
+Deno.test("freshTrips: beholder nylig oppdaterte biler", () => {
+  assertEquals(freshTrips([trip()], NOW).length, 1);
 });
 
-Deno.test("tripsAreFresh: det er den nyeste raden som teller", () => {
-  const old = trip({ id: "old", last_seen_at: "2026-11-03T05:00:00Z" });
-  assert(tripsAreFresh([old, trip()], NOW));
+Deno.test("freshTrips: fjerner gamle rader selv når andre er ferske", () => {
+  // check-trips kan ha oppdatert nye biler, men stoppet før den ryddet bort de gamle
+  const old = trip({ id: "gammel", last_seen_at: "2026-11-03T05:00:00Z" });
+  assertEquals(freshTrips([old, trip({ id: "ny" })], NOW).map((t) => t.id), ["ny"]);
 });
 
-Deno.test("tripsAreFresh: utdatert er ikke greit", () => {
-  assertFalse(tripsAreFresh([trip({ last_seen_at: "2026-11-03T09:00:00Z" })], NOW)); // 60 min
-});
-
-Deno.test("tripsAreFresh: grensen er inklusiv", () => {
+Deno.test("freshTrips: grensen er inklusiv", () => {
   const exactly = new Date(NOW.getTime() - 15 * 60_000).toISOString();
-  assert(tripsAreFresh([trip({ last_seen_at: exactly })], NOW));
+  assertEquals(freshTrips([trip({ last_seen_at: exactly })], NOW).length, 1);
   const justOver = new Date(NOW.getTime() - 15 * 60_000 - 1).toISOString();
-  assertFalse(tripsAreFresh([trip({ last_seen_at: justOver })], NOW));
+  assertEquals(freshTrips([trip({ last_seen_at: justOver })], NOW).length, 0);
 });
 
-Deno.test("tripsAreFresh: ugyldig tidsstempel regnes som utdatert", () => {
-  assertFalse(tripsAreFresh([trip({ last_seen_at: "ikke en dato" })], NOW));
-  assertFalse(tripsAreFresh([trip({ last_seen_at: "" })], NOW));
+Deno.test("freshTrips: ugyldig tidsstempel regnes som gammelt", () => {
+  assertEquals(freshTrips([trip({ last_seen_at: "ikke en dato" })], NOW), []);
+  assertEquals(freshTrips([trip({ last_seen_at: "" })], NOW), []);
+});
+
+Deno.test("freshTrips: endrer ikke input", () => {
+  const trips = [trip({ id: "gammel", last_seen_at: "2026-11-03T05:00:00Z" }), trip({ id: "ny" })];
+  const copy = structuredClone(trips);
+  freshTrips(trips, NOW);
+  assertEquals(trips, copy);
 });
 
 // ------------------------------------------------------------ idempotencyKey

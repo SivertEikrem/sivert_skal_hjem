@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertFalse, assertStringIncludes } from "jsr:@std/assert@1";
 import {
   type Deps,
-  MAX_EMAILS_PER_RUN,
+  MAX_ATTEMPTS_PER_RUN,
   MAX_REJECTED_IN_A_ROW,
   MAX_RETRYABLE_FAILURES,
   PAUSE_BETWEEN_SENDS_MS,
@@ -304,7 +304,7 @@ Deno.test("run: midlertidige feil må komme på rad. En vellykket sending nullst
 });
 
 Deno.test("run: avvisninger på rad uten én eneste vellykket sending tyder på feil oppsett", async () => {
-  const subs = Array.from({ length: 8 }, (_, i) => `u${i + 1}`);
+  const subs = Array.from({ length: MAX_REJECTED_IN_A_ROW + 5 }, (_, i) => `u${i + 1}`);
   const { deps, sends, marks } = setup({
     subscribers: subs,
     sendResult: () => ({ status: "rejected", message: "Resend nektet e-posten (422)" }),
@@ -341,11 +341,11 @@ Deno.test("run: ingen pause når det ikke er noe å sende", async () => {
 });
 
 Deno.test("run: maks antall e-poster per kjøring, resten tas neste gang", async () => {
-  const subs = Array.from({ length: MAX_EMAILS_PER_RUN + 7 }, (_, i) => `u${i}`);
+  const subs = Array.from({ length: MAX_ATTEMPTS_PER_RUN + 7 }, (_, i) => `u${i}`);
   const first = setup({ subscribers: subs });
   const res = await run(first.deps);
   assert(res.ok);
-  assertEquals(first.sends.length, MAX_EMAILS_PER_RUN);
+  assertEquals(first.sends.length, MAX_ATTEMPTS_PER_RUN);
 
   // Neste kjøring: de som fikk e-post er lagret som sendt, så de syv siste er igjen
   const sentRows = first.marks.map((m) => ({ user_id: m.userId, trip_id: "t1" }));
@@ -354,4 +354,41 @@ Deno.test("run: maks antall e-poster per kjøring, resten tas neste gang", async
   assertEquals(second.sends.length, 7);
   const overlap = second.sends.filter((s) => first.sends.some((f) => f.to === s.to));
   assertEquals(overlap, []);
+});
+
+Deno.test("run: gamle rader i trips sendes aldri, selv om andre er ferske", async () => {
+  const { deps, sends, marks } = setup({
+    trips: [
+      trip({ id: "gammel", car_model: "Utgått bil", last_seen_at: "2026-11-03T05:00:00Z" }),
+      trip({ id: "ny", car_model: "Fersk bil" }),
+    ],
+  });
+  const res = await run(deps);
+  assert(res.ok);
+  assertEquals(marks[0].tripIds, ["ny"]);
+  assertFalse(sends[0].email.text.includes("Utgått bil"));
+  assertStringIncludes(sends[0].email.text, "Fersk bil");
+});
+
+Deno.test("run: taket gjelder forsøk, også avviste, så en kjøring aldri går på ubestemt tid", async () => {
+  const subs = Array.from({ length: MAX_ATTEMPTS_PER_RUN + 50 }, (_, i) => `u${i}`);
+  const { deps, sends } = setup({
+    subscribers: subs,
+    // første lykkes, alle andre avvises (så terskelen for avvisninger aldri utløses)
+    sendResult: (_m, n) => (n === 1 ? { status: "ok" } : { status: "rejected", message: "Resend nektet e-posten (422)" }),
+  });
+  const res = await run(deps);
+  assertFalse(res.ok);
+  assertEquals(sends.length, MAX_ATTEMPTS_PER_RUN);
+});
+
+Deno.test("run: noen få dårlige adresser først stopper ikke de gyldige etterpå", async () => {
+  const { deps, sends, marks } = setup({
+    subscribers: ["u1", "u2", "u3", "u4", "u5"],
+    sendResult: (m) => (["u1@", "u2@", "u3@"].some((p) => m.to.startsWith(p)) ? { status: "rejected", message: "Resend nektet e-posten (422)" } : { status: "ok" }),
+  });
+  const res = await run(deps);
+  assertFalse(res.avbrutt);
+  assertEquals(sends.length, 5);
+  assertEquals(marks.map((m) => m.userId), ["u4", "u5"]);
 });

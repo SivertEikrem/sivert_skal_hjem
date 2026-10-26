@@ -151,18 +151,16 @@ export function selectFresh(
 }
 
 /**
- * Er trips-tabellen ferskt oppdatert? Tom tabell er greit (da finnes det ingenting å sende).
- * Ugyldige tidsstempler regnes som utdatert: i tvil sender vi ingenting.
+ * Bare biler som check-trips har sett nylig. check-trips oppdaterer last_seen_at på alle biler
+ * Hertz har akkurat nå, så en rad som ikke er oppdatert på en stund finnes trolig ikke lenger
+ * (for eksempel hvis check-trips stoppet før den fikk ryddet bort gamle rader).
+ * Ugyldige tidsstempler regnes som gamle: i tvil sender vi ingenting.
  */
-export function tripsAreFresh(trips: readonly Trip[], now: Date, maxAgeMs = TRIPS_MAX_AGE_MS): boolean {
-  if (!trips.length) return true;
-  let newest = -Infinity;
-  for (const t of trips) {
+export function freshTrips(trips: readonly Trip[], now: Date, maxAgeMs = TRIPS_MAX_AGE_MS): Trip[] {
+  return trips.filter((t) => {
     const ms = Date.parse(t.last_seen_at);
-    if (Number.isFinite(ms) && ms > newest) newest = ms;
-  }
-  if (!Number.isFinite(newest)) return false;
-  return now.getTime() - newest <= maxAgeMs;
+    return Number.isFinite(ms) && now.getTime() - ms <= maxAgeMs;
+  });
 }
 
 /**

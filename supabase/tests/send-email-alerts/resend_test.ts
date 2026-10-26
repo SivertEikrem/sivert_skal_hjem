@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertFalse, assertStringIncludes } from "jsr:@std/assert@1";
-import { RESEND_URL, sendViaResend } from "../../functions/send-email-alerts/resend.ts";
+import { redactAddresses, RESEND_URL, sendViaResend } from "../../functions/send-email-alerts/resend.ts";
 import { buildEmail } from "../../functions/send-email-alerts/logic.ts";
 import { trip } from "./helpers.ts";
 
@@ -100,4 +100,50 @@ Deno.test("resend: lange feilmeldinger kortes ned", async () => {
   const res = await sendViaResend(CONFIG, MAIL, fn);
   assert(res.status === "rejected" && res.message.length < 400);
   assertStringIncludes(res.status === "rejected" ? res.message : "", "422");
+});
+
+Deno.test("resend: adresser i feilmeldingen fra Resend fjernes", async () => {
+  const messages = [
+    "The recipient bruker@example.com is not allowed",
+    "Invalid `to` field: <bruker@example.com> bounced",
+    "Address 'bruker@example.com'; try again",
+    "BRUKER+tag@Sub.Example.CO.UK rejected",
+  ];
+  for (const message of messages) {
+    for (const status of [401, 422, 429, 500]) {
+      const { fn } = fakeFetch(() => reply(status, { message }));
+      const res = await sendViaResend(CONFIG, MAIL, fn);
+      const text = JSON.stringify(res);
+      assertFalse(/@/.test(text), `${status}: ${text}`);
+    }
+  }
+});
+
+Deno.test("redactAddresses", () => {
+  assertEquals(redactAddresses("hei a@b.no og c.d+e@f.g.com!"), "hei [adresse] og [adresse]!");
+  assertEquals(redactAddresses("ingen adresse her"), "ingen adresse her");
+  assertEquals(redactAddresses(""), "");
+  assertEquals(redactAddresses("snabel-a @ ikke en adresse"), "snabel-a @ ikke en adresse");
+});
+
+Deno.test("resend: feil som gjelder avsenderen er fatale, ikke per bruker", async () => {
+  const senderMessages = [
+    "Invalid `from` field. The email address needs to follow the `email@example.com` or `Name <email@example.com>` format.",
+    "The sivertskalhjem.no domain is not verified. Please, add and verify your domain.",
+    "Invalid from field",
+  ];
+  for (const message of senderMessages) {
+    const { fn } = fakeFetch(() => reply(422, { message }));
+    const res = await sendViaResend(CONFIG, MAIL, fn);
+    assertEquals(res.status, "fatal", message);
+    assert(res.status === "fatal" && res.message.includes("EMAIL_FROM"));
+    assertFalse(JSON.stringify(res).includes("@"));
+  }
+});
+
+Deno.test("resend: feil som gjelder mottakeren er ikke fatale", async () => {
+  for (const message of ["Invalid `to` field.", "The `to` address is not valid", "Validation error", ""]) {
+    const { fn } = fakeFetch(() => reply(422, message ? { message } : {}));
+    assertEquals((await sendViaResend(CONFIG, MAIL, fn)).status, "rejected", message);
+  }
 });

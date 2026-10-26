@@ -184,6 +184,28 @@ do $$ begin
     'andre brukere skal ikke påvirkes';
 end $$;
 
+-- ---------------------------------------------------------------- opprydding
+-- Kjører selve kommandoen fra cron-jobben. Gamle rader for biler som ikke finnes skal bort,
+-- men ikke gamle rader for biler som fortsatt er ledige, og ikke nye rader.
+insert into public.trips (id, from_name, from_city, to_name, to_city)
+  values ('cleanup-aktiv', 'X', 'OSLO', 'Y', 'BERGEN');
+
+insert into public.email_sent (user_id, trip_id, sent_at) values
+  ('00000000-0000-0000-0000-00000000000b', 'cleanup-gammel-borte', now() - interval '90 days'),
+  ('00000000-0000-0000-0000-00000000000b', 'cleanup-gammel-aktiv',  now() - interval '90 days'),
+  ('00000000-0000-0000-0000-00000000000b', 'cleanup-ny-borte',      now() - interval '1 day');
+update public.trips set id = 'cleanup-gammel-aktiv' where id = 'cleanup-aktiv';
+
+do $$ begin
+  execute (select command from cron.job where jobname = 'cleanup-email-sent');
+  assert not exists (select 1 from public.email_sent where trip_id = 'cleanup-gammel-borte'),
+    'gammel rad for en bil som ikke finnes skal slettes';
+  assert exists (select 1 from public.email_sent where trip_id = 'cleanup-gammel-aktiv'),
+    'gammel rad for en bil som fortsatt er ledig skal beholdes';
+  assert exists (select 1 from public.email_sent where trip_id = 'cleanup-ny-borte'),
+    'ny rad skal beholdes';
+end $$;
+
 -- ---------------------------------------------------------------- planlagte jobber
 do $$ begin
   assert (select schedule from cron.job where jobname = 'send-email-alerts') = '1-59/5 * * * *', 'send-email-alerts er planlagt';

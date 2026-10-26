@@ -94,7 +94,7 @@ Brukere kan krysse av for e-post på «Mine ruter», ved siden av eller i stedet
 
 **Hvis noe er galt, gjør den ingenting og sier fra:** manglende secrets, utdatert bil-liste (check-trips har stoppet), feil nøkkel hos Resend eller feil ved lagring gir HTTP 500 med forklaring. En bil regnes som sendt først når Resend har bekreftet.
 
-Stille timer og daglig oversikt støttes foreløpig ikke på e-post.
+Bryteren «Send varsel når en ny bil dukker opp» (`profiles.notifications_enabled`) er en hovedbryter som også gjelder e-post. Stille timer og daglig oversikt støttes foreløpig ikke på e-post.
 
 ## Nyttig i SQL Editor
 

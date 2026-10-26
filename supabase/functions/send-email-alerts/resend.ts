@@ -30,15 +30,24 @@ export type OutgoingMail = {
 
 type FetchFn = typeof fetch;
 
-/** Et kort utdrag av feilmeldingen fra Resend. Aldri nøkkelen, aldri adressen. */
-async function errorDetail(res: Response): Promise<string> {
+/** Fjerner alt som ligner en e-postadresse. Resend kan sitere adressen i feilmeldingen sin. */
+export function redactAddresses(text: string): string {
+  return text.replace(/[^\s<>"'`,;()@]+@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?/g, "[adresse]");
+}
+
+/** Feilmeldingen fra Resend slik den er. Brukes bare til å avgjøre hva slags feil det er. */
+async function rawErrorMessage(res: Response): Promise<string> {
   try {
     const body = await res.json();
-    const msg = typeof body?.message === "string" ? body.message : "";
-    return msg.slice(0, 200);
+    return typeof body?.message === "string" ? body.message.slice(0, 300) : "";
   } catch {
     return "";
   }
+}
+
+/** Gjelder feilen avsenderen (EMAIL_FROM, domenet) og ikke mottakeren? Da vil den ramme alle. */
+function concernsSender(message: string): boolean {
+  return /`from`|\bfrom\b.{0,20}\bfield|sender|domain|not verified/i.test(message);
 }
 
 export async function sendViaResend(
@@ -75,7 +84,8 @@ export async function sendViaResend(
     return { status: "ok" };
   }
 
-  const detail = await errorDetail(res);
+  const raw = await rawErrorMessage(res);
+  const detail = redactAddresses(raw).slice(0, 200);
   const suffix = detail ? `: ${detail}` : "";
 
   if (res.status === 401 || res.status === 403) {
@@ -86,6 +96,13 @@ export async function sendViaResend(
   }
   if (res.status === 429 || res.status >= 500) {
     return { status: "retry", message: `Resend svarte ${res.status}${suffix}` };
+  }
+  // Gjelder feilen avsenderen, rammer den alle, så vi stopper i stedet for å avvise hver bruker
+  if (concernsSender(raw)) {
+    return {
+      status: "fatal",
+      message: `Resend nektet på grunn av avsenderen (${res.status})${suffix}. Sjekk EMAIL_FROM og at domenet er verifisert.`,
+    };
   }
   // Øvrige 4xx: noe er galt med akkurat denne e-posten (400, 409, 422 …)
   return { status: "rejected", message: `Resend nektet e-posten (${res.status})${suffix}` };

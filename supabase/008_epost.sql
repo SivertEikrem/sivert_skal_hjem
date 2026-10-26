@@ -83,7 +83,9 @@ grant  execute on function public.set_email_alerts(boolean) to authenticated;
 -- 5. PLANLAGTE JOBBER
 --    send-email-alerts: hvert 5. minutt, ett minutt etter check-trips, så nye biler
 --                       er lagret før e-postene sendes.
---    cleanup-email-sent: rydder bort gamle rader hver søndag kl. 04:15 (UTC).
+--    cleanup-email-sent: rydder bort rader eldre enn 60 dager hver søndag kl. 04:15 (UTC), men
+--                        bare for biler som ikke lenger finnes i trips. Ellers ville en bil som
+--                        fortsatt er ledig bli sendt på nytt.
 --    Jobben gjør ingenting før Edge Function-en er opprettet og EMAIL_ALERTS_ENABLED er true.
 -- ---------------------------------------------------------------------
 select cron.schedule(
@@ -104,7 +106,11 @@ select cron.schedule(
 select cron.schedule(
   'cleanup-email-sent',
   '15 4 * * 0',
-  $$ delete from public.email_sent where sent_at < now() - interval '60 days' $$
+  $$
+  delete from public.email_sent e
+   where e.sent_at < now() - interval '60 days'
+     and not exists (select 1 from public.trips t where t.id = e.trip_id)
+  $$
 );
 
 notify pgrst, 'reload schema';
