@@ -4,7 +4,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "npm:@supabase/supabase-js@2";
 import type { Config } from "./handler.ts";
-import type { Deps, SentRow } from "./run.ts";
+import type { Deps, RejectedRow, SentRow } from "./run.ts";
 import type { Trip, Watch } from "./logic.ts";
 import { sendViaResend } from "./resend.ts";
 
@@ -57,6 +57,8 @@ export function buildDeps(config: Config): Deps {
 
     loadSent: () => selectAll<SentRow>(db, "email_sent", "user_id, trip_id", ["user_id", "trip_id"]),
 
+    loadRejected: () => selectAll<RejectedRow>(db, "email_rejected", "user_id, rejected_at", ["user_id"]),
+
     async getEmail(userId) {
       const { data, error } = await db.auth.admin.getUserById(userId);
       if (error) throw new Error(`auth: ${error.message}`);
@@ -70,6 +72,16 @@ export function buildDeps(config: Config): Deps {
     async markSent(userId, tripIds) {
       const rows = tripIds.map((trip_id) => ({ user_id: userId, trip_id }));
       const { error } = await db.from("email_sent").upsert(rows, { onConflict: "user_id,trip_id" });
+      if (error) throw new Error(error.message);
+    },
+
+    async markRejected(userId, reason) {
+      const { error } = await db
+        .from("email_rejected")
+        .upsert(
+          { user_id: userId, rejected_at: new Date().toISOString(), reason: reason.slice(0, 200) },
+          { onConflict: "user_id" },
+        );
       if (error) throw new Error(error.message);
     },
   };

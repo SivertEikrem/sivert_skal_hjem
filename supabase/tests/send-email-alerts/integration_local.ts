@@ -42,13 +42,20 @@ async function subscribeViaWebsite(email: string) {
 }
 
 const sent: OutgoingMail[] = [];
+let rejectTo: string | null = null; // adressen den falske Resend skal avvise
 function deps() {
   const real = buildDeps({
     supabaseUrl: URL_!,
     serviceRoleKey: SERVICE!,
     resend: { apiKey: "ubrukt", from: "test@example.com" },
   });
-  return { ...real, send: (m: OutgoingMail) => (sent.push(m), Promise.resolve({ status: "ok" as const })) };
+  return { ...real, send: (m: OutgoingMail) => {
+      sent.push(m);
+      return Promise.resolve(
+        m.to === rejectTo ? { status: "rejected" as const, message: "Resend nektet e-posten (422)" } : { status: "ok" as const },
+      );
+    },
+  };
 }
 
 Deno.test("integrasjon: ekte database, ekte brukere", async (t) => {
@@ -101,6 +108,29 @@ Deno.test("integrasjon: ekte database, ekte brukere", async (t) => {
       assertEquals((data ?? []).map((r) => r.trip_id).sort(), tripIds);
       const none = await admin.from("email_sent").select("user_id").in("user_id", [b.id, c.id, d.id]);
       assertEquals(none.data, []);
+    });
+
+    await t.step("avvist adresse huskes og hoppes over neste gang, mens andre får sine", async () => {
+      const e = await createUser("e");
+      created.push(e.id);
+      await subscribeViaWebsite(e.email);
+      await admin.from("watched_routes").insert({ user_id: e.id, from_city: CITY_FROM, to_city: CITY_TO });
+      rejectTo = e.email;
+      try {
+        const first = await run(deps());
+        assertStringIncludes(first.feil.join("\n"), "Resend nektet");
+        const { data } = await admin.from("email_rejected").select("user_id, reason").eq("user_id", e.id);
+        assertEquals(data?.length, 1);
+        assertStringIncludes(data?.[0].reason ?? "", "422");
+
+        const before = sent.length;
+        const second = await run(deps());
+        assertEquals(sent.slice(before).filter((m) => m.to === e.email).length, 0, "ikke prøvd på nytt");
+        assert(second.stats.utsatt >= 1);
+        assertFalse(second.feil.some((f) => f.includes("Resend nektet")), "ingen ny feil for den utsatte");
+      } finally {
+        rejectTo = null;
+      }
     });
 
     await t.step("andre kjøring: ingenting sendes på nytt", async () => {

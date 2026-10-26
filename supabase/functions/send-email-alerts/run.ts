@@ -32,8 +32,12 @@ export const PAUSE_BETWEEN_SENDS_MS = 600;
 // Forsøk per kjøring, enten de lykkes eller ikke, så én kjøring holder seg godt innenfor
 // tidsgrensen for Edge Functions. Resten tas i neste kjøring.
 export const MAX_ATTEMPTS_PER_RUN = 100;
+// En bruker Resend har avvist prøves ikke igjen før etter så lang tid. Da kan noen få dårlige
+// adresser aldri stå i veien for de gyldige, og vi hamrer ikke på Resend hvert 5. minutt.
+export const REJECT_COOLDOWN_MS = 24 * 60 * 60_000;
 
 export type SentRow = { user_id: string; trip_id: string };
+export type RejectedRow = { user_id: string; rejected_at: string };
 
 export type Deps = {
   now(): Date;
@@ -44,11 +48,14 @@ export type Deps = {
   loadSubscribers(): Promise<string[]>;
   loadWatches(): Promise<Watch[]>;
   loadSent(): Promise<SentRow[]>;
+  loadRejected(): Promise<RejectedRow[]>;
   /** Bekreftet e-postadresse, eller null hvis brukeren ikke har en. */
   getEmail(userId: string): Promise<string | null>;
   send(mail: OutgoingMail): Promise<SendResult>;
   /** Kaster hvis det ikke ble lagret. */
   markSent(userId: string, tripIds: string[]): Promise<void>;
+  /** Husker at Resend avviste denne brukeren. Kaster hvis det ikke ble lagret. */
+  markRejected(userId: string, reason: string): Promise<void>;
 };
 
 export type RunStats = {
@@ -56,6 +63,8 @@ export type RunStats = {
   epostSendt: number;
   biler: number;
   hoppetOver: number;
+  /** Brukere vi ikke prøvde fordi Resend avviste dem for mindre enn et døgn siden. */
+  utsatt: number;
   feil: number;
 };
 
@@ -78,7 +87,7 @@ function messageOf(e: unknown): string {
 }
 
 export async function run(deps: Deps): Promise<RunResult> {
-  const stats: RunStats = { abonnenter: 0, epostSendt: 0, biler: 0, hoppetOver: 0, feil: 0 };
+  const stats: RunStats = { abonnenter: 0, epostSendt: 0, biler: 0, hoppetOver: 0, utsatt: 0, feil: 0 };
   const feil: string[] = [];
   const result = (avbrutt?: string): RunResult => ({
     ok: !avbrutt && feil.length === 0,
@@ -91,6 +100,7 @@ export async function run(deps: Deps): Promise<RunResult> {
   let subscribers: string[];
   let watches: Watch[];
   let sent: SentRow[];
+  let rejected: RejectedRow[];
   const now = deps.now();
   try {
     const all = await deps.loadTrips();
@@ -103,7 +113,7 @@ export async function run(deps: Deps): Promise<RunResult> {
     subscribers = await deps.loadSubscribers();
     stats.abonnenter = subscribers.length;
     if (!trips.length || !subscribers.length) return result();
-    [watches, sent] = await Promise.all([deps.loadWatches(), deps.loadSent()]);
+    [watches, sent, rejected] = await Promise.all([deps.loadWatches(), deps.loadSent(), deps.loadRejected()]);
   } catch (e) {
     return result(`Kunne ikke lese fra databasen: ${messageOf(e)}`);
   }
@@ -121,6 +131,11 @@ export async function run(deps: Deps): Promise<RunResult> {
     sentByUser.set(s.user_id, set);
   }
 
+  // Ugyldig tidsstempel gir NaN, som aldri er «nylig». Da prøver vi heller en gang for mye.
+  const coolingDown = new Set(
+    rejected.filter((r) => now.getTime() - Date.parse(r.rejected_at) < REJECT_COOLDOWN_MS).map((r) => r.user_id),
+  );
+
   let retryableFailures = 0; // på rad, nullstilles av en vellykket sending
   let rejectedInARow = 0;
   let attempted = 0;
@@ -130,6 +145,10 @@ export async function run(deps: Deps): Promise<RunResult> {
     try {
       const fresh = selectFresh(trips, watchesByUser.get(userId) ?? [], sentByUser.get(userId) ?? new Set());
       if (!fresh.length) continue;
+      if (coolingDown.has(userId)) {
+        stats.utsatt++;
+        continue;
+      }
       const batch = fresh.slice(0, MAX_TRIPS_PER_EMAIL);
 
       const to = await deps.getEmail(userId);
@@ -155,6 +174,11 @@ export async function run(deps: Deps): Promise<RunResult> {
       if (res.status === "rejected") {
         stats.feil++;
         feil.push(`${who(userId)}: ${res.message}`);
+        try {
+          await deps.markRejected(userId, res.message);
+        } catch (e) {
+          feil.push(`${who(userId)}: kunne ikke lagre avvisningen (${messageOf(e)})`);
+        }
         if (++rejectedInARow >= MAX_REJECTED_IN_A_ROW && stats.epostSendt === 0) {
           return result(
             `Avbrutt etter ${MAX_REJECTED_IN_A_ROW} avvisninger på rad uten en eneste vellykket sending. ` +

@@ -82,6 +82,16 @@ do $$ begin
     insert into public.email_sent (user_id, trip_id) values ('00000000-0000-0000-0000-00000000000a', 'x');
     raise exception 'FEIL: A kunne skrive til email_sent';
   exception when insufficient_privilege then null; end;
+
+  begin
+    perform 1 from public.email_rejected;
+    raise exception 'FEIL: A kunne lese email_rejected';
+  exception when insufficient_privilege then null; end;
+
+  begin
+    insert into public.email_rejected (user_id) values ('00000000-0000-0000-0000-00000000000a');
+    raise exception 'FEIL: A kunne skrive til email_rejected';
+  exception when insufficient_privilege then null; end;
 end $$;
 
 -- Ugyldig verdi avvises og endrer ingenting
@@ -137,6 +147,11 @@ begin
     perform 1 from public.email_sent;
     raise exception 'FEIL: anonym kunne lese email_sent';
   exception when insufficient_privilege then null; end;
+
+  begin
+    perform 1 from public.email_rejected;
+    raise exception 'FEIL: anonym kunne lese email_rejected';
+  exception when insufficient_privilege then null; end;
 end $$;
 
 -- ---------------------------------------------------------------- backenden (service_role)
@@ -171,6 +186,28 @@ do $$ begin
     'standard skal være av';
 end $$;
 
+-- ---------------------------------------------------------------- avvisninger
+-- Backenden kan skrive og oppdatere (upsert som funksjonen gjør det), og opprydding fjerner bare gamle rader
+set local role service_role;
+do $$ begin
+  insert into public.email_rejected (user_id, reason) values ('00000000-0000-0000-0000-00000000000a', 'første')
+    on conflict (user_id) do update set rejected_at = now(), reason = excluded.reason;
+  insert into public.email_rejected (user_id, reason) values ('00000000-0000-0000-0000-00000000000a', 'andre')
+    on conflict (user_id) do update set rejected_at = now(), reason = excluded.reason;
+  assert (select count(*) from public.email_rejected where user_id = '00000000-0000-0000-0000-00000000000a') = 1, 'én rad per bruker';
+  assert (select reason from public.email_rejected where user_id = '00000000-0000-0000-0000-00000000000a') = 'andre', 'siste avvisning vinner';
+end $$;
+reset role;
+insert into public.email_rejected (user_id, rejected_at) values ('00000000-0000-0000-0000-00000000000b', now() - interval '40 days');
+
+do $$ begin
+  execute (select command from cron.job where jobname = 'cleanup-email-sent');
+  assert not exists (select 1 from public.email_rejected where user_id = '00000000-0000-0000-0000-00000000000b'),
+    'avvisning eldre enn 30 dager skal ryddes bort';
+  assert exists (select 1 from public.email_rejected where user_id = '00000000-0000-0000-0000-00000000000a'),
+    'ny avvisning skal beholdes';
+end $$;
+
 -- ---------------------------------------------------------------- sletting av konto
 reset role;
 
@@ -180,6 +217,8 @@ do $$ begin
     'abonnement skal slettes sammen med kontoen';
   assert (select count(*) from public.email_sent where user_id = '00000000-0000-0000-0000-00000000000a') = 0,
     'email_sent skal slettes sammen med kontoen';
+  assert (select count(*) from public.email_rejected where user_id = '00000000-0000-0000-0000-00000000000a') = 0,
+    'email_rejected skal slettes sammen med kontoen';
   assert (select count(*) from public.email_subscriptions where user_id = '00000000-0000-0000-0000-00000000000b') = 1,
     'andre brukere skal ikke påvirkes';
 end $$;

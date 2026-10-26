@@ -5,6 +5,8 @@ import {
   MAX_REJECTED_IN_A_ROW,
   MAX_RETRYABLE_FAILURES,
   PAUSE_BETWEEN_SENDS_MS,
+  type RejectedRow,
+  REJECT_COOLDOWN_MS,
   run,
   type SentRow,
 } from "../../functions/send-email-alerts/run.ts";
@@ -17,6 +19,8 @@ type World = {
   subscribers?: string[];
   watches?: Watch[];
   sent?: SentRow[];
+  rejected?: RejectedRow[];
+  markRejected?: (userId: string, reason: string) => Promise<void>;
   emails?: Record<string, string | null>;
   sendResult?: (mail: OutgoingMail, n: number) => SendResult | Promise<SendResult>;
   markSent?: (userId: string, tripIds: string[]) => Promise<void>;
@@ -27,6 +31,7 @@ type World = {
 function setup(w: World = {}) {
   const sends: OutgoingMail[] = [];
   const marks: { userId: string; tripIds: string[] }[] = [];
+  const rejects: { userId: string; reason: string }[] = [];
   const calls: string[] = [];
   const sleeps: number[] = [];
   const subscribers = w.subscribers ?? ["u1"];
@@ -39,6 +44,7 @@ function setup(w: World = {}) {
       (calls.push("loadWatches"),
         Promise.resolve(w.watches ?? subscribers.map((user_id) => watch({ user_id })))),
     loadSent: () => (calls.push("loadSent"), Promise.resolve(w.sent ?? [])),
+    loadRejected: () => (calls.push("loadRejected"), Promise.resolve(w.rejected ?? [])),
     getEmail: (id) =>
       Promise.resolve(w.emails && id in w.emails ? w.emails[id] : `${id}@example.com`),
     send: async (mail) => {
@@ -49,9 +55,13 @@ function setup(w: World = {}) {
       if (w.markSent) await w.markSent(userId, tripIds);
       marks.push({ userId, tripIds });
     },
+    markRejected: async (userId, reason) => {
+      if (w.markRejected) await w.markRejected(userId, reason);
+      rejects.push({ userId, reason });
+    },
     ...w.overrides,
   };
-  return { deps, sends, marks, calls, sleeps };
+  return { deps, sends, marks, calls, sleeps, rejects };
 }
 
 Deno.test("run: sender én e-post og lagrer at den er sendt", async () => {
@@ -59,7 +69,7 @@ Deno.test("run: sender én e-post og lagrer at den er sendt", async () => {
   const res = await run(deps);
   assert(res.ok);
   assertEquals(res.feil, []);
-  assertEquals(res.stats, { abonnenter: 1, epostSendt: 1, biler: 1, hoppetOver: 0, feil: 0 });
+  assertEquals(res.stats, { abonnenter: 1, epostSendt: 1, biler: 1, hoppetOver: 0, utsatt: 0, feil: 0 });
   assertEquals(sends.length, 1);
   assertEquals(sends[0].to, "u1@example.com");
   assertStringIncludes(sends[0].email.text, "Gardermoen");
@@ -391,4 +401,104 @@ Deno.test("run: noen få dårlige adresser først stopper ikke de gyldige etterp
   assertFalse(res.avbrutt);
   assertEquals(sends.length, 5);
   assertEquals(marks.map((m) => m.userId), ["u4", "u5"]);
+});
+
+// ------------------------------------------------------------ husker avviste brukere
+
+const hoursAgo = (h: number) => new Date(NOW.getTime() - h * 3_600_000).toISOString();
+const bad = (m: OutgoingMail) => m.to.startsWith("bad");
+const rejectBad = (m: OutgoingMail): SendResult =>
+  bad(m) ? { status: "rejected", message: "Resend nektet e-posten (422)" } : { status: "ok" };
+
+Deno.test("run: en avvist bruker huskes, med årsak, og de andre får sin e-post", async () => {
+  const { deps, marks, rejects } = setup({
+    subscribers: ["bad1", "u2"],
+    sendResult: rejectBad,
+  });
+  const res = await run(deps);
+  assertFalse(res.ok);
+  assertEquals(rejects, [{ userId: "bad1", reason: "Resend nektet e-posten (422)" }]);
+  assertEquals(marks.map((m) => m.userId), ["u2"]);
+});
+
+Deno.test("run: en bruker som er avvist for under et døgn siden hoppes over, uten feil", async () => {
+  const { deps, sends, rejects } = setup({
+    subscribers: ["bad1", "u2"],
+    rejected: [{ user_id: "bad1", rejected_at: hoursAgo(2) }],
+    sendResult: rejectBad,
+  });
+  const res = await run(deps);
+  assert(res.ok, JSON.stringify(res));
+  assertEquals(res.stats.utsatt, 1);
+  assertEquals(sends.map((s) => s.to), ["u2@example.com"]);
+  assertEquals(rejects, []);
+});
+
+Deno.test("run: etter et døgn prøves brukeren igjen", async () => {
+  const justBefore = new Date(NOW.getTime() - REJECT_COOLDOWN_MS + 1).toISOString();
+  const justAfter = new Date(NOW.getTime() - REJECT_COOLDOWN_MS).toISOString();
+  const before = setup({ subscribers: ["u1"], rejected: [{ user_id: "u1", rejected_at: justBefore }] });
+  await run(before.deps);
+  assertEquals(before.sends.length, 0);
+  const after = setup({ subscribers: ["u1"], rejected: [{ user_id: "u1", rejected_at: justAfter }] });
+  await run(after.deps);
+  assertEquals(after.sends.length, 1);
+});
+
+Deno.test("run: ugyldig tidsstempel på en avvisning betyr at vi prøver, ikke at brukeren glemmes for alltid", async () => {
+  const { deps, sends } = setup({ subscribers: ["u1"], rejected: [{ user_id: "u1", rejected_at: "ikke en dato" }] });
+  await run(deps);
+  assertEquals(sends.length, 1);
+});
+
+Deno.test("run: utsatte brukere teller verken som forsøk eller som avvisning", async () => {
+  const cooling = Array.from({ length: MAX_ATTEMPTS_PER_RUN + 20 }, (_, i) => `bad${i}`);
+  const { deps, sends, sleeps } = setup({
+    subscribers: [...cooling, "u1"],
+    rejected: cooling.map((user_id) => ({ user_id, rejected_at: hoursAgo(1) })),
+    sendResult: rejectBad,
+  });
+  const res = await run(deps);
+  assert(res.ok);
+  assertEquals(sends.map((s) => s.to), ["u1@example.com"]);
+  assertEquals(res.stats.utsatt, cooling.length);
+  assertEquals(sleeps, []); // ingen pause før den første
+});
+
+Deno.test("run: utsatt bruker uten nye biler regnes ikke som utsatt", async () => {
+  const { deps, sends } = setup({
+    subscribers: ["u1"],
+    sent: [{ user_id: "u1", trip_id: "t1" }],
+    rejected: [{ user_id: "u1", rejected_at: hoursAgo(1) }],
+  });
+  const res = await run(deps);
+  assertEquals(res.stats.utsatt, 0);
+  assertEquals(sends.length, 0);
+});
+
+Deno.test("run: får vi ikke lagret avvisningen, sier vi fra men fortsetter", async () => {
+  const { deps, marks } = setup({
+    subscribers: ["bad1", "u2"],
+    sendResult: rejectBad,
+    markRejected: () => Promise.reject(new Error("skriving feilet")),
+  });
+  const res = await run(deps);
+  assertFalse(res.ok);
+  assertFalse(res.avbrutt);
+  assertStringIncludes(res.feil.join("\n"), "kunne ikke lagre avvisningen");
+  assertEquals(marks.map((m) => m.userId), ["u2"]);
+});
+
+Deno.test("run: mange dårlige adresser først blokkerer ikke de gyldige. Køen går fremover for hver kjøring", async () => {
+  // 25 permanent dårlige adresser står først, deretter tre gyldige.
+  const subs = [...Array.from({ length: 25 }, (_, i) => `bad${String(i).padStart(2, "0")}`), "u1", "u2", "u3"];
+  let rejected: RejectedRow[] = [];
+  const delivered: string[] = [];
+  for (let kjøring = 1; kjøring <= 4 && delivered.length < 3; kjøring++) {
+    const { deps, sends, rejects } = setup({ subscribers: subs, rejected, sendResult: rejectBad });
+    await run(deps);
+    delivered.push(...sends.filter((s) => !bad(s)).map((s) => s.to));
+    rejected = [...rejected, ...rejects.map((r) => ({ user_id: r.userId, rejected_at: NOW.toISOString() }))];
+  }
+  assertEquals(delivered.sort(), ["u1@example.com", "u2@example.com", "u3@example.com"]);
 });

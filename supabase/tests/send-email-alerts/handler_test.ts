@@ -46,9 +46,11 @@ function ctx(vars: Record<string, string | undefined>, deps?: Partial<Deps>) {
           loadSubscribers: () => Promise.resolve(["u1"]),
           loadWatches: () => Promise.resolve([watch()]),
           loadSent: () => Promise.resolve([]),
+          loadRejected: () => Promise.resolve([]),
           getEmail: () => Promise.resolve("bruker@example.com"),
           send: (m) => (sends.push(m.to), Promise.resolve({ status: "ok" as const })),
           markSent: () => Promise.resolve(),
+          markRejected: () => Promise.resolve(),
           ...deps,
         };
       },

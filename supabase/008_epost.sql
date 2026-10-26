@@ -32,12 +32,23 @@ create table if not exists public.email_sent (
 );
 
 -- ---------------------------------------------------------------------
+-- 2b. HVEM HAR RESEND AVVIST — husker det i et døgn, så noen få dårlige adresser
+--     aldri står i veien for de andre
+-- ---------------------------------------------------------------------
+create table if not exists public.email_rejected (
+  user_id      uuid primary key references public.profiles (id) on delete cascade,
+  rejected_at  timestamptz not null default now(),
+  reason       text
+);
+
+-- ---------------------------------------------------------------------
 -- 3. TILGANGSKONTROLL — samme prinsipp som ellers: start fra null
 -- ---------------------------------------------------------------------
 alter table public.email_subscriptions enable row level security;
 alter table public.email_sent          enable row level security;
+alter table public.email_rejected      enable row level security;
 
-revoke all on public.email_subscriptions, public.email_sent from anon, authenticated;
+revoke all on public.email_subscriptions, public.email_sent, public.email_rejected from anon, authenticated;
 
 -- Brukeren kan se sin egen innstilling. Endring går gjennom set_email_alerts() under.
 grant select on public.email_subscriptions to authenticated;
@@ -47,9 +58,9 @@ create policy email_subscriptions_select_own on public.email_subscriptions
   for select to authenticated
   using ((select auth.uid()) = user_id);
 
--- email_sent: ingen tilgang fra nettsiden, bare backenden (service_role)
+-- email_sent og email_rejected: ingen tilgang fra nettsiden, bare backenden (service_role)
 
-grant all on public.email_subscriptions, public.email_sent to service_role;
+grant all on public.email_subscriptions, public.email_sent, public.email_rejected to service_role;
 
 -- ---------------------------------------------------------------------
 -- 4. SLÅ E-POST AV OG PÅ — nettsiden kaller denne
@@ -85,7 +96,8 @@ grant  execute on function public.set_email_alerts(boolean) to authenticated;
 --                       er lagret før e-postene sendes.
 --    cleanup-email-sent: rydder bort rader eldre enn 60 dager hver søndag kl. 04:15 (UTC), men
 --                        bare for biler som ikke lenger finnes i trips. Ellers ville en bil som
---                        fortsatt er ledig bli sendt på nytt.
+--                        fortsatt er ledig bli sendt på nytt. Fjerner også avvisninger eldre
+--                        enn 30 dager.
 --    Jobben gjør ingenting før Edge Function-en er opprettet og EMAIL_ALERTS_ENABLED er true.
 -- ---------------------------------------------------------------------
 select cron.schedule(
@@ -109,7 +121,8 @@ select cron.schedule(
   $$
   delete from public.email_sent e
    where e.sent_at < now() - interval '60 days'
-     and not exists (select 1 from public.trips t where t.id = e.trip_id)
+     and not exists (select 1 from public.trips t where t.id = e.trip_id);
+  delete from public.email_rejected where rejected_at < now() - interval '30 days';
   $$
 );
 
@@ -124,6 +137,7 @@ select jobname, schedule from cron.job where jobname in ('send-email-alerts', 'c
 --   select cron.unschedule('send-email-alerts');
 --   select cron.unschedule('cleanup-email-sent');
 --   drop function if exists public.set_email_alerts(boolean);
+--   drop table if exists public.email_rejected;
 --   drop table if exists public.email_sent;
 --   drop table if exists public.email_subscriptions;
 -- ---------------------------------------------------------------------
