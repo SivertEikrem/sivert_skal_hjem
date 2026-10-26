@@ -168,7 +168,7 @@ function watchLabel(w: Watch): string {
 }
 
 // Lenker nederst i hver melding
-const FOOTER = "\n\nSe alle på kartet: https://sivertskalhjem.no/oversikt.html\nBestill hos Hertz: https://hertzfreerider.no";
+const FOOTER = "\n\nSe alle på kartet: https://sivertskalhjem.no/oversikt.html\nBestill her: https://hertzfreerider.no";
 
 function withFooter(messages: string[]): string[] {
   if (!messages.length) return messages;
