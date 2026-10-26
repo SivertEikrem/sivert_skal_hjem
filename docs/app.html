@@ -151,6 +151,22 @@
       </div>
     </section>
 
+    <!-- E-post (egen seksjon, styres av email.js) -->
+    <section class="section" id="email-section" aria-labelledby="email-title" hidden>
+      <h2 id="email-title">Varsler på e-post</h2>
+      <div class="panel">
+        <div class="panel-row">
+          <label class="switch">
+            <input type="checkbox" id="email-toggle">
+            Send meg e-post når en ny bil dukker opp
+          </label>
+          <span class="saved" id="email-saved" hidden>Lagret</span>
+        </div>
+        <p class="muted">Du får e-post på <strong id="email-address"></strong> om nye biler på rutene dine. Du kan bruke både e-post og Telegram, eller bare e-post (koble da fra Telegram). Bryteren «Send varsel når en ny bil dukker opp» ovenfor gjelder begge, så slår du den av, får du ingenting. Stille timer og daglig oversikt gjelder foreløpig bare Telegram.</p>
+        <div id="email-msg" class="notice error" hidden role="status"></div>
+      </div>
+    </section>
+
     <!-- Konto -->
     <section class="section" aria-labelledby="account-title">
       <h2 id="account-title">Konto</h2>
@@ -182,5 +198,6 @@
   <script src="norway-map.js"></script>
   <script src="map.js"></script>
   <script src="app.js"></script>
+  <script src="email.js"></script>
 </body>
 </html>

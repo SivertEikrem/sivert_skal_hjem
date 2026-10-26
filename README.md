@@ -46,6 +46,9 @@ supabase/
   schema.sql               grunnoppsettet
   002_…sql – 007_…sql      senere endringer, kjøres i rekkefølge
   functions/<navn>/index.ts   én fil per Edge Function
+  008_epost.sql            e-postvarsler (valgfritt tillegg)
+  functions/send-email-alerts/  e-postvarsler, flere filer (logikken ligger i logic.ts og run.ts)
+  tests/                   tester, se tests/README.md
 ```
 
 ## Sette opp fra bunnen
@@ -69,6 +72,29 @@ supabase/
 9. **E-post:** Resend-domene med DNS-oppføringene de oppgir, og Custom SMTP i Supabase (`smtp.resend.com`, port 465, bruker `resend`). E-postmalene ligger i Supabase under Authentication → Emails → Templates og lenker til `login.html?token_hash=…`.
 
 Ingen hemmeligheter skal noen gang ligge i dette repoet.
+
+## E-postvarsler (valgfritt)
+
+Brukere kan krysse av for e-post på «Mine ruter», ved siden av eller i stedet for Telegram. Dette er et rent tillegg: `check-trips`, `check-hjemferd` og Telegram-varslene er urørt. `send-email-alerts` leser `trips` som `check-trips` allerede fyller ut, og har sin egen oversikt over hva som er sendt (`email_sent`).
+
+**Slå på:**
+1. Kjør `supabase/008_epost.sql`.
+2. I Resend: lag en API-nøkkel (bare sending, gjerne begrenset til domenet). Domenet `sivertskalhjem.no` er allerede satt opp for innloggings-e-postene.
+3. Edge Functions → Secrets:
+   - `RESEND_API_KEY`
+   - `EMAIL_FROM`, for eksempel `Sivert skal hjem <varsler@sivertskalhjem.no>`
+   - `EMAIL_REPLY_TO` (valgfri)
+   - `EMAIL_ALERTS_ENABLED` = `true` (legg denne inn sist)
+4. Opprett funksjonen `send-email-alerts` med **alle filene** i `supabase/functions/send-email-alerts/` (ikke bare `index.ts`), og slå av JWT-verifisering. Med CLI: `supabase functions deploy send-email-alerts --no-verify-jwt`.
+5. Prøv den: kjør Hertz-sjekken-eksempelet under med `send-email-alerts`, og se svaret med `net._http_response`. Svaret forklarer på norsk hva som skjedde og viser aldri nøkler eller e-postadresser.
+
+**Rekkefølge:** nettsiden går live så snart endringen slås sammen i `main`. Gjør steg 1–5 først. Er `008_epost.sql` ikke kjørt, skjules e-postvalget uten feilmelding. Er SQL-en kjørt, men funksjonen ikke deployet eller bryteren av, kan brukere krysse av uten at det sendes noe.
+
+**Slå av:** sett `EMAIL_ALERTS_ENABLED` til `false` (eller slett den). Da svarer funksjonen 200 og gjør ingenting. Ønsker du den helt av: `select cron.unschedule('send-email-alerts');`. Hvordan alt fjernes står nederst i `008_epost.sql`.
+
+**Hvis noe er galt, gjør den ingenting og sier fra:** manglende secrets, utdatert bil-liste (check-trips har stoppet), feil nøkkel hos Resend eller feil ved lagring gir HTTP 500 med forklaring. En bil regnes som sendt først når Resend har bekreftet.
+
+Bryteren «Send varsel når en ny bil dukker opp» (`profiles.notifications_enabled`) er en hovedbryter som også gjelder e-post. Stille timer og daglig oversikt støttes foreløpig ikke på e-post.
 
 ## Nyttig i SQL Editor
 
