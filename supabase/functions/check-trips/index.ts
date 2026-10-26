@@ -53,7 +53,13 @@ type Watch = {
   date_from: string | null; // YYYY-MM-DD, norsk dato
   date_to: string | null;
 };
-type Profile = { id: string; telegram_chat_id: number; digest_hours: number[] | null };
+type Profile = {
+  id: string;
+  telegram_chat_id: number;
+  digest_hours: number[] | null;
+  quiet_from: number | null; // stille timer, norsk tid (0–23)
+  quiet_to: number | null;
+};
 
 // ---------------------------------------------------------------- hjelpere
 
@@ -169,6 +175,12 @@ function watchLabel(w: Watch): string {
 
 // Lenker nederst i hver melding
 const FOOTER = "\n\nSe alle på kartet: https://sivertskalhjem.no/oversikt.html\nBestill her: https://hertzfreerider.no";
+
+// Er klokka innenfor brukerens stille timer? Håndterer perioder over midnatt (23–07).
+function inQuiet(hour: number, from: number | null, to: number | null): boolean {
+  if (from == null || to == null || from === to) return false;
+  return from < to ? hour >= from && hour < to : hour >= from || hour < to;
+}
 
 function withFooter(messages: string[]): string[] {
   if (!messages.length) return messages;
@@ -331,7 +343,7 @@ Deno.serve(async (req) => {
   const db = createClient(url, key, { auth: { persistSession: false } });
   const now = new Date();
   const runStart = now.toISOString();
-  const stats = { trips: 0, stations: 0, varsler: 0, oppsummeringer: 0, frakoblet: 0, feil: 0 };
+  const stats = { trips: 0, stations: 0, varsler: 0, holdt_igjen: 0, oppsummeringer: 0, frakoblet: 0, feil: 0 };
 
   try {
     // 1. Hent fra Hertz
@@ -404,6 +416,20 @@ Deno.serve(async (req) => {
     if (tripList.length) {
       const { error } = await db.from("trips").upsert(tripList, { onConflict: "id" });
       if (error) throw new Error(`trips: ${error.message}`);
+
+      // Historikk: første gang en bil sees lagres for godt, siste gang oppdateres
+      const history = tripList.map((t) => ({
+        id: t.id,
+        car_model: t.car_model,
+        from_name: t.from_name,
+        from_city: t.from_city,
+        to_name: t.to_name,
+        to_city: t.to_city,
+        available_at: t.available_at,
+        last_seen_at: runStart,
+      }));
+      const { error: hErr } = await db.from("trip_history").upsert(history, { onConflict: "id" });
+      if (hErr) console.error(`trip_history: ${hErr.message}`); // historikk skal aldri stoppe varslene
     }
     {
       const { error } = await db.from("trips").delete().lt("last_seen_at", runStart);
@@ -414,7 +440,7 @@ Deno.serve(async (req) => {
     const profiles = await selectAll<Profile>(
       db,
       "profiles",
-      "id, telegram_chat_id, digest_hours",
+      "id, telegram_chat_id, digest_hours, quiet_from, quiet_to",
       ["id"],
       (q) => q.not("telegram_chat_id", "is", null).eq("notifications_enabled", true),
     );
@@ -463,8 +489,15 @@ Deno.serve(async (req) => {
         .sort(byExpiry);
 
       let blocked = false;
-      if (fresh.length) {
-        const result = await sendAll(token, chatId, withFooter(chunk(fresh.map(tripBlock), "\n\n———\n\n")));
+      const quiet = inQuiet(oslo.hour, profile.quiet_from, profile.quiet_to);
+      if (fresh.length && quiet) {
+        // Stille timer: vent. Bilene er fortsatt usendt, og kommer samlet når stillheten er over.
+        stats.holdt_igjen += fresh.length;
+      } else if (fresh.length) {
+        const morning = profile.quiet_from != null && profile.quiet_to != null &&
+          profile.quiet_from !== profile.quiet_to && oslo.hour === profile.quiet_to;
+        const header = morning ? "🌅 Dette dukket opp i natt" : "";
+        const result = await sendAll(token, chatId, withFooter(chunk(fresh.map(tripBlock), "\n\n———\n\n", header)));
         if (result === "ok") {
           const rows = fresh.map((t) => ({ user_id: profile.id, trip_id: t.id }));
           const { error } = await db.from("sent_notifications").upsert(rows, { onConflict: "user_id,trip_id" });
