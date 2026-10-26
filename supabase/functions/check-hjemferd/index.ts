@@ -33,9 +33,18 @@ const SMAA_ORD = new Set(["i", "og", "på", "ved"]);
 
 type Listing = { id: string; from_text: string; to_text: string };
 type Watch = { user_id: string; city: string };
-type Profile = { id: string; telegram_chat_id: number };
+type Profile = { id: string; telegram_chat_id: number; quiet_from: number | null; quiet_to: number | null };
 
 // ---------------------------------------------------------------- hjelpere
+
+function osloHour(d: Date): number {
+  return Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Oslo", hour: "numeric", hourCycle: "h23" }).format(d));
+}
+
+function inQuiet(hour: number, from: number | null, to: number | null): boolean {
+  if (from == null || to == null || from === to) return false;
+  return from < to ? hour >= from && hour < to : hour >= from || hour < to;
+}
 
 function pen(s: string): string {
   return s
@@ -158,7 +167,7 @@ Deno.serve(async (req) => {
 
   const db = createClient(url, key, { auth: { persistSession: false } });
   const now = new Date().toISOString();
-  const stats = { annonser: 0, nye: 0, tips: 0, feil: 0 };
+  const stats = { annonser: 0, nye: 0, tips: 0, holdt_igjen: 0, feil: 0 };
 
   const { data: status } = await db
     .from("app_status")
@@ -201,13 +210,16 @@ Deno.serve(async (req) => {
       if (error) throw new Error(`hjemferd_listings: ${error.message}`);
     }
 
-    // 3. Tips til brukerne
-    if (fresh.length) {
+    // 3. Tips til brukerne. Vi ser på alle annonser brukeren ikke har fått tips om,
+    // ikke bare de som er nye siden sist, så tips som ble holdt igjen i stille timer
+    // (eller en by som nettopp ble lagt til) også kommer med.
+    const hour = osloHour(new Date());
+    if (listings.length) {
       const watches = await selectAll<Watch>(db, "tip_cities", "user_id, city");
       const profiles = await selectAll<Profile>(
         db,
         "profiles",
-        "id, telegram_chat_id",
+        "id, telegram_chat_id, quiet_from, quiet_to",
         (q: any) => q.not("telegram_chat_id", "is", null).eq("notifications_enabled", true),
       );
       const sent = await selectAll<{ user_id: string; listing_id: string }>(db, "hjemferd_sent", "user_id, listing_id");
@@ -225,7 +237,7 @@ Deno.serve(async (req) => {
 
         const hits: { city: string; dir: "fra" | "til" }[] = [];
         const listingIds: string[] = [];
-        for (const l of fresh) {
+        for (const l of listings) {
           if (sentSet.has(`${p.id}|${l.id}`)) continue;
           const city = cities.find((c) => mentionsCity(l.from_text, c) || mentionsCity(l.to_text, c));
           if (!city) continue;
@@ -233,6 +245,10 @@ Deno.serve(async (req) => {
           listingIds.push(l.id);
         }
         if (!hits.length) continue;
+        if (inQuiet(hour, p.quiet_from, p.quiet_to)) {
+          stats.holdt_igjen += hits.length;
+          continue;
+        }
 
         const result = await sendTelegram(token, p.telegram_chat_id, tipMessage(hits));
         if (result === "ok") {
