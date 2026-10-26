@@ -17,7 +17,7 @@ function reply(chatId: number, text: string): Response {
 const ok = () => new Response("ok");
 
 Deno.serve(async (req) => {
-  const secret = Deno.env.get("CRON_SECRET")?.trim();
+  const secret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET")?.trim();
   const given = req.headers.get("x-telegram-bot-api-secret-token")?.trim();
   if (!secret || given !== secret) {
     return new Response("Unauthorized", { status: 401 });
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       if (!code) {
         return reply(
           chatId,
-          `Hei! 👋\n\nFor å få varsler om ledige Freerider-biler logger du inn på ${SITE} og trykker «Koble til Telegram».`,
+          `Hei! 👋\n\nFor å få varsler om ledige returbiler logger du inn på ${SITE} og trykker «Koble til Telegram».`,
         );
       }
 
